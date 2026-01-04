@@ -1,124 +1,185 @@
-import { Building2, Users, Calendar, Stethoscope, TrendingUp, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, Calendar, Stethoscope, Building2, TrendingUp } from 'lucide-react';
 
-const stats = [
+const kpiCards = [
   {
     title: 'إجمالي المرضى',
-    value: '٢,٤٥٦',
-    change: '+١٢٪',
+    value: '1,234',
+    change: '+12%',
+    changeType: 'positive',
     icon: Users,
-    trend: 'up',
+    iconBg: 'bg-primary',
   },
   {
-    title: 'المواعيد اليوم',
-    value: '٤٨',
-    change: '+٥٪',
+    title: 'مواعيد اليوم',
+    value: '45',
+    change: '+5%',
+    changeType: 'positive',
     icon: Calendar,
-    trend: 'up',
+    iconBg: 'bg-success',
   },
   {
-    title: 'الأطباء المتاحين',
-    value: '١٢',
-    change: '٠٪',
+    title: 'الأطباء',
+    value: '28',
+    change: '+2%',
+    changeType: 'positive',
     icon: Stethoscope,
-    trend: 'neutral',
+    iconBg: 'bg-purple',
   },
   {
-    title: 'نسبة الحضور',
-    value: '٩٤٪',
-    change: '+٣٪',
-    icon: TrendingUp,
-    trend: 'up',
+    title: 'العيادات',
+    value: '12',
+    change: '0%',
+    changeType: 'neutral',
+    icon: Building2,
+    iconBg: 'bg-warning',
   },
 ];
 
-const recentAppointments = [
-  { patient: 'أحمد محمد العلي', doctor: 'د. سارة الخالد', time: '٩:٠٠ ص', status: 'مؤكد' },
-  { patient: 'فاطمة عبدالله', doctor: 'د. خالد السعود', time: '٩:٣٠ ص', status: 'في الانتظار' },
-  { patient: 'محمد إبراهيم', doctor: 'د. نورة الأحمد', time: '١٠:٠٠ ص', status: 'مؤكد' },
-  { patient: 'سلمى العتيبي', doctor: 'د. عبدالرحمن المالكي', time: '١٠:٣٠ ص', status: 'مؤكد' },
+const weeklyAppointments = [
+  { day: 'السبت', height: 60 },
+  { day: 'الأحد', height: 75 },
+  { day: 'الإثنين', height: 85 },
+  { day: 'الثلاثاء', height: 70 },
+  { day: 'الأربعاء', height: 90 },
+  { day: 'الخميس', height: 65 },
+  { day: 'الجمعة', height: 40 },
+];
+
+const recentActivities = [
+  {
+    id: 1,
+    dotColor: 'bg-success',
+    icon: Users,
+    title: 'محمد أحمد السالم',
+    subtitle: 'تم تسجيل مريض جديد',
+    time: 'منذ ساعة',
+  },
+  {
+    id: 2,
+    dotColor: 'bg-primary',
+    icon: Calendar,
+    title: 'موعد مع د. سارة الأحمد',
+    subtitle: 'عيادة الأسنان - غداً الساعة 10:00 ص',
+    time: 'منذ ساعتين',
+  },
+  {
+    id: 3,
+    dotColor: 'bg-success',
+    icon: Users,
+    title: 'فاطمة علي العتيبي',
+    subtitle: 'تم تسجيل مريض جديد',
+    time: 'منذ 3 ساعات',
+  },
 ];
 
 export default function Dashboard() {
   return (
-    <div className="space-y-8">
-      {/* Page Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-          <Building2 className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">لوحة التحكم</h1>
-          <p className="text-muted-foreground">مرحباً بك في نظام إدارة المركز الصحي</p>
-        </div>
+    <div className="space-y-6">
+      {/* Page Title */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">لوحة التحكم</h1>
+        <p className="text-sm text-muted-foreground">نظرة عامة على أداء المركز</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <Card key={index} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm text-muted-foreground">{stat.title}</p>
-                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
-                  <p className={`text-sm font-medium ${
-                    stat.trend === 'up' ? 'text-success' : 'text-muted-foreground'
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        {kpiCards.map((card, index) => (
+          <div
+            key={index}
+            className="bg-card p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">{card.title}</p>
+                <p className="text-3xl font-bold text-foreground">{card.value}</p>
+                <div className="flex items-center gap-1 mt-2">
+                  {card.changeType === 'positive' && (
+                    <TrendingUp className="w-4 h-4 text-success" />
+                  )}
+                  <span className={`text-sm font-medium ${
+                    card.changeType === 'positive' ? 'text-success' : 'text-muted-foreground'
                   }`}>
-                    {stat.change} من الشهر الماضي
-                  </p>
-                </div>
-                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <stat.icon className="w-7 h-7 text-primary" />
+                    {card.change}
+                  </span>
+                  <span className="text-xs text-muted-foreground">من الشهر الماضي</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <div className={`w-14 h-14 rounded-full ${card.iconBg} flex items-center justify-center`}>
+                <card.icon className="w-7 h-7 text-white" />
+              </div>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Recent Appointments */}
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Clock className="w-5 h-5 text-primary" />
-            المواعيد القادمة
-          </CardTitle>
-          <button className="text-sm text-primary hover:text-primary/80 font-medium transition-colors">
-            عرض الكل
-          </button>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentAppointments.map((appointment, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{appointment.patient}</p>
-                    <p className="text-sm text-muted-foreground">{appointment.doctor}</p>
-                  </div>
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-foreground">{appointment.time}</p>
-                  <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                    appointment.status === 'مؤكد' 
-                      ? 'bg-success/10 text-success' 
-                      : 'bg-warning/10 text-warning'
-                  }`}>
-                    {appointment.status}
-                  </span>
-                </div>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Gender Distribution Chart */}
+        <div className="bg-card p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+          <h3 className="text-lg font-bold text-foreground mb-6">توزيع المرضى حسب النوع</h3>
+          <div className="flex items-center justify-center gap-8">
+            {/* Male Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-28 h-28 rounded-full bg-primary flex items-center justify-center mb-3">
+                <span className="text-2xl font-bold text-white">58%</span>
+              </div>
+              <span className="text-sm font-medium text-foreground">ذكور (716)</span>
+            </div>
+            {/* Female Circle */}
+            <div className="flex flex-col items-center">
+              <div className="w-28 h-28 rounded-full bg-pink flex items-center justify-center mb-3">
+                <span className="text-2xl font-bold text-white">42%</span>
+              </div>
+              <span className="text-sm font-medium text-foreground">إناث (518)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly Appointments Bar Chart */}
+        <div className="bg-card p-6 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+          <h3 className="text-lg font-bold text-foreground mb-6">المواعيد الأسبوعية</h3>
+          <div className="flex items-end justify-between gap-3 h-48">
+            {weeklyAppointments.map((item, index) => (
+              <div key={index} className="flex-1 flex flex-col items-center">
+                <div 
+                  className="w-full bg-primary hover:bg-primary/80 transition-colors duration-200 rounded-t-md cursor-pointer"
+                  style={{ height: `${item.height}%` }}
+                />
+                <span className="text-xs text-muted-foreground mt-2 whitespace-nowrap">{item.day}</span>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Recent Activity Feed */}
+      <div className="bg-card p-6 rounded-lg shadow-sm">
+        <h3 className="text-lg font-bold text-foreground mb-4">آخر الأنشطة</h3>
+        <div className="space-y-1">
+          {recentActivities.map((activity) => (
+            <div
+              key={activity.id}
+              className="flex items-center justify-between p-4 rounded-lg hover:bg-muted/50 transition-colors duration-200"
+            >
+              <div className="flex items-center gap-4">
+                {/* Dot Indicator */}
+                <div className={`w-2.5 h-2.5 rounded-full ${activity.dotColor}`} />
+                {/* Icon */}
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+                  <activity.icon className="w-5 h-5 text-muted-foreground" />
+                </div>
+                {/* Text Content */}
+                <div>
+                  <p className="font-medium text-foreground">{activity.title}</p>
+                  <p className="text-sm text-muted-foreground">{activity.subtitle}</p>
+                </div>
+              </div>
+              {/* Time */}
+              <span className="text-sm text-muted-foreground">{activity.time}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
