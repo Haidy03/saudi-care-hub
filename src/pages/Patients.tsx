@@ -1,109 +1,231 @@
-import { Users, Search, Plus, Phone, Mail } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useMemo } from 'react';
+import { Users, Search, Filter, Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
-const patients = [
-  { id: '١', name: 'أحمد محمد العلي', nationalId: '١٠٨٥٧٤٣٢١٠', phone: '٠٥٥١٢٣٤٥٦٧', age: '٣٥', gender: 'ذكر' },
-  { id: '٢', name: 'فاطمة عبدالله الشمري', nationalId: '١٠٩٨٧٦٥٤٣٢', phone: '٠٥٠٩٨٧٦٥٤٣', age: '٢٨', gender: 'أنثى' },
-  { id: '٣', name: 'محمد إبراهيم السعيد', nationalId: '١٠٧٦٥٤٣٢١٩', phone: '٠٥٤٣٢١٦٥٤٩', age: '٤٥', gender: 'ذكر' },
-  { id: '٤', name: 'نورة خالد العتيبي', nationalId: '١٠٦٥٤٣٢١٠٨', phone: '٠٥٦٧٨٩٠١٢٣', age: '٣٢', gender: 'أنثى' },
-  { id: '٥', name: 'عبدالرحمن سعود المالكي', nationalId: '١٠٥٤٣٢١٠٩٧', phone: '٠٥٢٣٤٥٦٧٨٩', age: '٥٢', gender: 'ذكر' },
+interface Patient {
+  id: string;
+  name: string;
+  gender: 'male' | 'female';
+  age: number;
+  phone: string;
+  registrationDate: string;
+}
+
+const patientsData: Patient[] = [
+  { id: '1', name: 'محمد أحمد السالم', gender: 'male', age: 35, phone: '0551234567', registrationDate: '2025-01-04' },
+  { id: '2', name: 'فاطمة علي العتيبي', gender: 'female', age: 28, phone: '0559876543', registrationDate: '2025-01-04' },
+  { id: '3', name: 'عبدالله خالد المطيري', gender: 'male', age: 42, phone: '0555551234', registrationDate: '2025-01-03' },
+  { id: '4', name: 'سارة محمد القحطاني', gender: 'female', age: 31, phone: '0558887777', registrationDate: '2025-01-03' },
+  { id: '5', name: 'خالد عبدالرحمن الشمري', gender: 'male', age: 55, phone: '0554443333', registrationDate: '2025-01-02' },
+  { id: '6', name: 'نورة سعود الدوسري', gender: 'female', age: 24, phone: '0557776666', registrationDate: '2025-01-02' },
+  { id: '7', name: 'أحمد ناصر الغامدي', gender: 'male', age: 38, phone: '0552221111', registrationDate: '2025-01-01' },
 ];
 
 export default function Patients() {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPatients = useMemo(() => {
+    if (!searchQuery.trim()) return patientsData;
+    const query = searchQuery.toLowerCase();
+    return patientsData.filter(
+      (patient) =>
+        patient.name.toLowerCase().includes(query) ||
+        patient.phone.includes(query)
+    );
+  }, [searchQuery]);
+
+  const handleAddPatient = () => {
+    toast.info('سيتم فتح نموذج إضافة مريض');
+  };
+
+  const handleView = (patient: Patient) => {
+    toast.info(`عرض بيانات: ${patient.name}`);
+  };
+
+  const handleEdit = (patient: Patient) => {
+    toast.info(`تعديل بيانات: ${patient.name}`);
+  };
+
+  const handleDelete = (patient: Patient) => {
+    toast.error(`حذف المريض: ${patient.name}`);
+  };
+
+  const handleFilter = () => {
+    toast.info('سيتم فتح خيارات الفلترة');
+  };
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Users className="w-6 h-6 text-primary" />
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <Users className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">المرضى</h1>
-            <p className="text-muted-foreground">إدارة سجلات المرضى</p>
+            <h1 className="text-2xl font-bold text-foreground">إدارة المرضى</h1>
+            <p className="text-sm text-muted-foreground">عرض وإدارة بيانات المرضى</p>
           </div>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          إضافة مريض
-        </Button>
       </div>
 
-      {/* Search and Filters */}
-      <Card className="border-border/50 shadow-sm">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input 
-              placeholder="البحث عن مريض بالاسم أو رقم الهوية..."
-              className="pr-10 bg-muted/50"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Action Bar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Search Input */}
+        <div className="relative w-full sm:w-[400px]">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="البحث بالاسم أو رقم الهاتف..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-10 bg-card border-border focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
 
-      {/* Patients List */}
-      <Card className="border-border/50 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-lg">قائمة المرضى ({patients.length})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">#</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">اسم المريض</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">رقم الهوية</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">رقم الجوال</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">العمر</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">الجنس</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground">الإجراءات</th>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={handleFilter}
+            className="gap-2 border-border hover:bg-muted"
+          >
+            <Filter className="w-4 h-4" />
+            فلترة
+          </Button>
+          <Button
+            onClick={handleAddPatient}
+            className="gap-2 bg-primary hover:bg-primary/90"
+          >
+            <Plus className="w-4 h-4" />
+            إضافة مريض
+          </Button>
+        </div>
+      </div>
+
+      {/* Patients Table */}
+      <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="text-right py-3 px-6 text-sm font-semibold text-foreground sticky top-0 bg-muted/50">
+                  الاسم الكامل
+                </th>
+                <th className="text-right py-3 px-6 text-sm font-semibold text-foreground sticky top-0 bg-muted/50">
+                  النوع
+                </th>
+                <th className="text-right py-3 px-6 text-sm font-semibold text-foreground sticky top-0 bg-muted/50">
+                  العمر
+                </th>
+                <th className="text-right py-3 px-6 text-sm font-semibold text-foreground sticky top-0 bg-muted/50">
+                  رقم الهاتف
+                </th>
+                <th className="text-right py-3 px-6 text-sm font-semibold text-foreground sticky top-0 bg-muted/50">
+                  تاريخ التسجيل
+                </th>
+                <th className="text-right py-3 px-6 text-sm font-semibold text-foreground sticky top-0 bg-muted/50">
+                  الإجراءات
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPatients.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-12 text-muted-foreground">
+                    لا توجد نتائج مطابقة للبحث
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {patients.map((patient) => (
-                  <tr key={patient.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                    <td className="py-4 px-4 text-sm text-muted-foreground">{patient.id}</td>
-                    <td className="py-4 px-4">
+              ) : (
+                filteredPatients.map((patient) => (
+                  <tr
+                    key={patient.id}
+                    className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                  >
+                    {/* Name */}
+                    <td className="py-3 px-6">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">{patient.name.charAt(0)}</span>
+                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-medium text-primary">
+                            {patient.name.charAt(0)}
+                          </span>
                         </div>
                         <span className="font-medium text-foreground">{patient.name}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-sm text-muted-foreground font-mono">{patient.nationalId}</td>
-                    <td className="py-4 px-4 text-sm text-muted-foreground">{patient.phone}</td>
-                    <td className="py-4 px-4 text-sm text-muted-foreground">{patient.age} سنة</td>
-                    <td className="py-4 px-4">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                        patient.gender === 'ذكر' 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'bg-accent text-accent-foreground'
-                      }`}>
-                        {patient.gender}
+
+                    {/* Gender */}
+                    <td className="py-3 px-6">
+                      <span
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
+                          patient.gender === 'male'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-pink/10 text-pink'
+                        }`}
+                      >
+                        {patient.gender === 'male' ? 'ذكر' : 'أنثى'}
                       </span>
                     </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-                          <Phone className="w-4 h-4 text-muted-foreground" />
+
+                    {/* Age */}
+                    <td className="py-3 px-6 text-foreground">
+                      {patient.age} سنة
+                    </td>
+
+                    {/* Phone */}
+                    <td className="py-3 px-6">
+                      <span dir="ltr" className="text-foreground font-mono">
+                        {patient.phone}
+                      </span>
+                    </td>
+
+                    {/* Registration Date */}
+                    <td className="py-3 px-6 text-muted-foreground">
+                      {patient.registrationDate}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-3 px-6">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleView(patient)}
+                          className="p-2 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                          title="عرض"
+                        >
+                          <Eye className="w-[18px] h-[18px]" />
                         </button>
-                        <button className="p-2 rounded-lg hover:bg-muted transition-colors">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
+                        <button
+                          onClick={() => handleEdit(patient)}
+                          className="p-2 rounded-lg hover:bg-success/10 text-success transition-colors"
+                          title="تعديل"
+                        >
+                          <Edit className="w-[18px] h-[18px]" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(patient)}
+                          className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
+                          title="حذف"
+                        >
+                          <Trash2 className="w-[18px] h-[18px]" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Table Footer */}
+        <div className="px-6 py-4 border-t border-border bg-muted/30 flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            عرض {filteredPatients.length} من {patientsData.length} مريض
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
