@@ -1,8 +1,49 @@
-import { Stethoscope, Plus, MoreVertical } from 'lucide-react';
+import { useState } from 'react';
+import { Stethoscope, Plus, MoreVertical, Pencil, Trash2, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
+import AddDoctorModal from '@/components/doctors/AddDoctorModal';
 
-const doctors = [
+interface Doctor {
+  id: number;
+  name: string;
+  specialty: string;
+  clinic: string;
+  phone: string;
+  experience: string;
+  status: string;
+  iconColor: string;
+}
+
+const iconColors = [
+  'bg-blue-100 text-blue-600',
+  'bg-green-100 text-green-600',
+  'bg-purple-100 text-purple-600',
+  'bg-orange-100 text-orange-600',
+  'bg-pink-100 text-pink-600',
+  'bg-red-100 text-red-600',
+  'bg-cyan-100 text-cyan-600',
+  'bg-amber-100 text-amber-600',
+];
+
+const initialDoctors: Doctor[] = [
   { 
     id: 1, 
     name: 'د. سارة الأحمد', 
@@ -66,12 +107,60 @@ const doctors = [
 ];
 
 export default function Doctors() {
-  const handleAddDoctor = () => {
-    alert('سيتم فتح نموذج إضافة دكتور');
+  const [doctors, setDoctors] = useState<Doctor[]>(initialDoctors);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [deletingDoctor, setDeletingDoctor] = useState<Doctor | null>(null);
+  const { toast } = useToast();
+
+  const handleAddDoctor = (doctorData: Omit<Doctor, 'id' | 'iconColor'>) => {
+    const newDoctor: Doctor = {
+      ...doctorData,
+      id: Math.max(...doctors.map(d => d.id), 0) + 1,
+      iconColor: iconColors[doctors.length % iconColors.length],
+    };
+    setDoctors([...doctors, newDoctor]);
+    setIsModalOpen(false);
+    setEditingDoctor(null);
+    toast({
+      title: 'تم بنجاح',
+      description: editingDoctor ? 'تم تعديل بيانات الدكتور بنجاح' : 'تم إضافة الدكتور بنجاح',
+    });
   };
 
-  const handleMenuClick = (doctorName: string) => {
-    alert(`قائمة الخيارات: تعديل، عرض الجدول، تعطيل\nالدكتور: ${doctorName}`);
+  const handleEditDoctor = (doctorData: Omit<Doctor, 'id' | 'iconColor'>) => {
+    if (!editingDoctor) return;
+    setDoctors(doctors.map(d => 
+      d.id === editingDoctor.id 
+        ? { ...d, ...doctorData }
+        : d
+    ));
+    setIsModalOpen(false);
+    setEditingDoctor(null);
+    toast({
+      title: 'تم بنجاح',
+      description: 'تم تعديل بيانات الدكتور بنجاح',
+    });
+  };
+
+  const handleDeleteDoctor = () => {
+    if (!deletingDoctor) return;
+    setDoctors(doctors.filter(d => d.id !== deletingDoctor.id));
+    setDeletingDoctor(null);
+    toast({
+      title: 'تم الحذف',
+      description: 'تم حذف الدكتور بنجاح',
+    });
+  };
+
+  const openEditModal = (doctor: Doctor) => {
+    setEditingDoctor(doctor);
+    setIsModalOpen(true);
+  };
+
+  const openAddModal = () => {
+    setEditingDoctor(null);
+    setIsModalOpen(true);
   };
 
   return (
@@ -82,7 +171,7 @@ export default function Doctors() {
           <h1 className="text-2xl font-bold text-foreground">إدارة الأطباء</h1>
           <p className="text-sm text-muted-foreground">إدارة الأطباء والتخصصات</p>
         </div>
-        <Button onClick={handleAddDoctor} className="gap-2">
+        <Button onClick={openAddModal} className="gap-2">
           <Plus className="w-4 h-4" />
           إضافة دكتور
         </Button>
@@ -97,12 +186,30 @@ export default function Doctors() {
           >
             <CardContent className="p-6">
               {/* Menu Button */}
-              <button
-                onClick={() => handleMenuClick(doctor.name)}
-                className="absolute top-4 left-4 p-1.5 rounded-lg hover:bg-muted transition-colors"
-              >
-                <MoreVertical className="w-5 h-5 text-muted-foreground" />
-              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="absolute top-4 left-4 p-1.5 rounded-lg hover:bg-muted transition-colors">
+                    <MoreVertical className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => openEditModal(doctor)}>
+                    <Pencil className="w-4 h-4 ml-2" />
+                    تعديل البيانات
+                  </DropdownMenuItem>
+                  <DropdownMenuItem>
+                    <Calendar className="w-4 h-4 ml-2" />
+                    عرض الجدول
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setDeletingDoctor(doctor)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 ml-2" />
+                    حذف
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               {/* Doctor Header */}
               <div className="flex items-center gap-3 mb-5">
@@ -134,7 +241,9 @@ export default function Doctors() {
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     doctor.status === 'نشط' 
                       ? 'bg-green-100 text-green-700' 
-                      : 'bg-amber-100 text-amber-700'
+                      : doctor.status === 'في إجازة'
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-gray-100 text-gray-700'
                   }`}>
                     {doctor.status}
                   </span>
@@ -144,6 +253,35 @@ export default function Doctors() {
           </Card>
         ))}
       </div>
+
+      {/* Add/Edit Doctor Modal */}
+      <AddDoctorModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingDoctor(null);
+        }}
+        onSave={editingDoctor ? handleEditDoctor : handleAddDoctor}
+        editDoctor={editingDoctor}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingDoctor} onOpenChange={() => setDeletingDoctor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف الدكتور "{deletingDoctor?.name}"؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteDoctor} className="bg-destructive hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
