@@ -3,6 +3,7 @@ import { Users, Search, Filter, Plus, Eye, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import AddPatientModal from '@/components/patients/AddPatientModal';
 
 interface Patient {
   id: string;
@@ -13,7 +14,18 @@ interface Patient {
   registrationDate: string;
 }
 
-const patientsData: Patient[] = [
+const calculateAge = (birthDate: string): number => {
+  const today = new Date();
+  const birth = new Date(birthDate);
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+const initialPatients: Patient[] = [
   { id: '1', name: 'محمد أحمد السالم', gender: 'male', age: 35, phone: '0551234567', registrationDate: '2025-01-04' },
   { id: '2', name: 'فاطمة علي العتيبي', gender: 'female', age: 28, phone: '0559876543', registrationDate: '2025-01-04' },
   { id: '3', name: 'عبدالله خالد المطيري', gender: 'male', age: 42, phone: '0555551234', registrationDate: '2025-01-03' },
@@ -25,19 +37,31 @@ const patientsData: Patient[] = [
 
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [patients, setPatients] = useState<Patient[]>(initialPatients);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const filteredPatients = useMemo(() => {
-    if (!searchQuery.trim()) return patientsData;
+    if (!searchQuery.trim()) return patients;
     const query = searchQuery.toLowerCase();
-    return patientsData.filter(
+    return patients.filter(
       (patient) =>
         patient.name.toLowerCase().includes(query) ||
         patient.phone.includes(query)
     );
-  }, [searchQuery]);
+  }, [searchQuery, patients]);
 
-  const handleAddPatient = () => {
-    toast.info('سيتم فتح نموذج إضافة مريض');
+  const handleAddPatient = (formData: any) => {
+    const newPatient: Patient = {
+      id: String(patients.length + 1),
+      name: formData.fullName,
+      gender: formData.gender as 'male' | 'female',
+      age: calculateAge(formData.birthDate),
+      phone: formData.phone,
+      registrationDate: new Date().toISOString().split('T')[0],
+    };
+    setPatients((prev) => [newPatient, ...prev]);
+    setIsModalOpen(false);
+    toast.success('تم إضافة المريض بنجاح');
   };
 
   const handleView = (patient: Patient) => {
@@ -96,7 +120,7 @@ export default function Patients() {
             فلترة
           </Button>
           <Button
-            onClick={handleAddPatient}
+            onClick={() => setIsModalOpen(true)}
             className="gap-2 bg-primary hover:bg-primary/90"
           >
             <Plus className="w-4 h-4" />
@@ -222,10 +246,17 @@ export default function Patients() {
         {/* Table Footer */}
         <div className="px-6 py-4 border-t border-border bg-muted/30 flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
-            عرض {filteredPatients.length} من {patientsData.length} مريض
+            عرض {filteredPatients.length} من {patients.length} مريض
           </p>
         </div>
       </div>
+
+      {/* Add Patient Modal */}
+      <AddPatientModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleAddPatient}
+      />
     </div>
   );
 }
