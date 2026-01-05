@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { X, Search, UserPlus, Check, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { X, Search, UserPlus, Check, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,13 +21,10 @@ import {
 } from '@/components/ui/popover';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
-
-interface Patient {
-  id: string;
-  name: string;
-  phone: string;
-  age: number;
-}
+import { useClinics } from '@/hooks/useClinics';
+import { useDoctorsByClinic } from '@/hooks/useDoctors';
+import { useSearchPatients, usePatients, Patient, calculateAge } from '@/hooks/usePatients';
+import { useBookedSlots } from '@/hooks/useAppointments';
 
 interface BookAppointmentModalProps {
   isOpen: boolean;
@@ -39,7 +36,9 @@ interface BookAppointmentModalProps {
 interface AppointmentFormData {
   patientId: string;
   patientName: string;
+  clinicId: string;
   clinic: string;
+  doctorId: string;
   doctor: string;
   date: string;
   time: string;
@@ -49,31 +48,6 @@ interface AppointmentFormData {
   sendReminder: boolean;
 }
 
-const patients: Patient[] = [
-  { id: '1', name: 'محمد أحمد السالم', phone: '0551234567', age: 35 },
-  { id: '2', name: 'فاطمة علي العتيبي', phone: '0559876543', age: 28 },
-  { id: '3', name: 'عبدالله خالد المطيري', phone: '0555551234', age: 42 },
-  { id: '4', name: 'سارة محمد القحطاني', phone: '0558887777', age: 31 },
-  { id: '5', name: 'خالد عبدالرحمن الشمري', phone: '0554443333', age: 55 },
-  { id: '6', name: 'نورة سعود الدوسري', phone: '0557776666', age: 24 },
-];
-
-const clinics = [
-  { id: 'dental', name: 'عيادة الأسنان' },
-  { id: 'orthopedics', name: 'عيادة العظام' },
-  { id: 'dermatology', name: 'عيادة الجلدية' },
-  { id: 'pediatrics', name: 'عيادة الأطفال' },
-  { id: 'internal', name: 'عيادة الباطنة' },
-];
-
-const doctors: Record<string, { id: string; name: string; specialty: string }[]> = {
-  dental: [{ id: 'd1', name: 'د. سارة الأحمد', specialty: 'طب الأسنان' }],
-  orthopedics: [{ id: 'd2', name: 'د. محمد العمري', specialty: 'طب العظام' }],
-  dermatology: [{ id: 'd3', name: 'د. ليلى الشهري', specialty: 'طب الجلدية' }],
-  pediatrics: [{ id: 'd4', name: 'د. عمر الزهراني', specialty: 'طب الأطفال' }],
-  internal: [{ id: 'd5', name: 'د. هند العتيبي', specialty: 'الباطنة' }],
-};
-
 const timeSlots = [
   '08:00 ص', '08:30 ص', '09:00 ص', '09:30 ص',
   '10:00 ص', '10:30 ص', '11:00 ص', '11:30 ص',
@@ -81,8 +55,6 @@ const timeSlots = [
   '02:00 م', '02:30 م', '03:00 م', '03:30 م',
   '04:00 م', '04:30 م', '05:00 م', '05:30 م',
 ];
-
-const bookedSlots = ['10:00 ص', '02:00 م', '11:30 ص'];
 
 const appointmentTypes = [
   { id: 'general', name: 'كشف عام' },
@@ -97,6 +69,23 @@ const steps = [
   { id: 3, title: 'التاريخ والوقت' },
   { id: 4, title: 'التفاصيل' },
 ];
+
+// Helper function to convert display time to database format for comparison
+function displayTimeToDbTime(displayTime: string): string {
+  const match = displayTime.match(/(\d{2}):(\d{2})\s*(ص|م)/);
+  if (!match) return displayTime;
+  
+  let [, hours, minutes, period] = match;
+  let hour = parseInt(hours, 10);
+  
+  if (period === 'م' && hour !== 12) {
+    hour += 12;
+  } else if (period === 'ص' && hour === 12) {
+    hour = 0;
+  }
+  
+  return `${hour.toString().padStart(2, '0')}:${minutes}:00`;
+}
 
 export default function BookAppointmentModal({
   isOpen,
@@ -117,15 +106,31 @@ export default function BookAppointmentModal({
   const [sendReminder, setSendReminder] = useState(true);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Fetch data from database
+  const { data: clinics = [], isLoading: clinicsLoading } = useClinics();
+  const { data: doctors = [], isLoading: doctorsLoading } = useDoctorsByClinic(selectedClinic);
+  const { data: patients = [] } = usePatients();
+  
+  // Get booked slots for selected doctor and date
+  const { data: bookedSlots = [] } = useBookedSlots(
+    selectedDoctor,
+    selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
+  );
+
+  // Filter patients based on search query
   const filteredPatients = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const query = searchQuery.toLowerCase();
     return patients.filter(
-      (p) => p.name.toLowerCase().includes(query) || p.phone.includes(query)
-    );
-  }, [searchQuery]);
+      (p) => p.full_name.toLowerCase().includes(query) || p.phone.includes(query)
+    ).slice(0, 10);
+  }, [searchQuery, patients]);
 
-  const availableDoctors = selectedClinic ? doctors[selectedClinic] || [] : [];
+  // Check if a time slot is booked
+  const isTimeSlotBooked = (slot: string): boolean => {
+    const slotDbTime = displayTimeToDbTime(slot);
+    return bookedSlots.some(bookedTime => bookedTime === slotDbTime);
+  };
 
   const validateStep = (step: number): boolean => {
     const newErrors: { [key: string]: string } = {};
@@ -173,14 +178,16 @@ export default function BookAppointmentModal({
   const handleSubmit = () => {
     if (!selectedPatient || !selectedDate) return;
 
-    const clinicName = clinics.find((c) => c.id === selectedClinic)?.name || '';
-    const doctorInfo = availableDoctors.find((d) => d.id === selectedDoctor);
+    const clinicData = clinics.find((c) => c.id === selectedClinic);
+    const doctorData = doctors.find((d) => d.id === selectedDoctor);
 
     onSubmit({
       patientId: selectedPatient.id,
-      patientName: selectedPatient.name,
-      clinic: clinicName,
-      doctor: doctorInfo?.name || '',
+      patientName: selectedPatient.full_name,
+      clinicId: selectedClinic,
+      clinic: clinicData?.name || '',
+      doctorId: selectedDoctor,
+      doctor: doctorData?.name || '',
       date: format(selectedDate, 'yyyy-MM-dd'),
       time: selectedTime,
       appointmentType,
@@ -211,6 +218,16 @@ export default function BookAppointmentModal({
     resetForm();
     onClose();
   };
+
+  // Reset doctor when clinic changes
+  useEffect(() => {
+    setSelectedDoctor('');
+  }, [selectedClinic]);
+
+  // Reset time when date changes
+  useEffect(() => {
+    setSelectedTime('');
+  }, [selectedDate]);
 
   if (!isOpen) return null;
 
@@ -246,7 +263,7 @@ export default function BookAppointmentModal({
                       currentStep === step.id
                         ? 'bg-primary text-primary-foreground'
                         : currentStep > step.id
-                        ? 'bg-success text-success-foreground'
+                        ? 'bg-green-500 text-white'
                         : 'bg-muted text-muted-foreground'
                     )}
                   >
@@ -265,7 +282,7 @@ export default function BookAppointmentModal({
                   <div
                     className={cn(
                       'h-0.5 w-8 sm:w-12 mx-2',
-                      currentStep > step.id ? 'bg-success' : 'bg-muted'
+                      currentStep > step.id ? 'bg-green-500' : 'bg-muted'
                     )}
                   />
                 )}
@@ -310,7 +327,7 @@ export default function BookAppointmentModal({
                       }}
                       className="w-full px-4 py-3 text-right hover:bg-muted transition-colors border-b border-border last:border-0"
                     >
-                      <div className="font-medium text-foreground">{patient.name}</div>
+                      <div className="font-medium text-foreground">{patient.full_name}</div>
                       <div className="text-sm text-muted-foreground" dir="ltr">
                         {patient.phone}
                       </div>
@@ -332,15 +349,15 @@ export default function BookAppointmentModal({
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                         <span className="text-lg font-medium text-primary">
-                          {selectedPatient.name.charAt(0)}
+                          {selectedPatient.full_name.charAt(0)}
                         </span>
                       </div>
                       <div>
                         <div className="font-medium text-foreground">
-                          {selectedPatient.name}
+                          {selectedPatient.full_name}
                         </div>
                         <div className="text-sm text-muted-foreground" dir="ltr">
-                          {selectedPatient.phone} • {selectedPatient.age} سنة
+                          {selectedPatient.phone} • {calculateAge(selectedPatient.birth_date)} سنة
                         </div>
                       </div>
                     </div>
@@ -377,7 +394,6 @@ export default function BookAppointmentModal({
                   value={selectedClinic}
                   onValueChange={(value) => {
                     setSelectedClinic(value);
-                    setSelectedDoctor('');
                   }}
                 >
                   <SelectTrigger
@@ -386,11 +402,17 @@ export default function BookAppointmentModal({
                     <SelectValue placeholder="اختر العيادة" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50">
-                    {clinics.map((clinic) => (
-                      <SelectItem key={clinic.id} value={clinic.id}>
-                        {clinic.name}
-                      </SelectItem>
-                    ))}
+                    {clinicsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                    ) : (
+                      clinics.map((clinic) => (
+                        <SelectItem key={clinic.id} value={clinic.id}>
+                          {clinic.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 {errors.clinic && (
@@ -410,14 +432,24 @@ export default function BookAppointmentModal({
                   <SelectTrigger
                     className={errors.doctor ? 'border-destructive' : ''}
                   >
-                    <SelectValue placeholder="اختر الدكتور" />
+                    <SelectValue placeholder={!selectedClinic ? 'اختر العيادة أولاً' : 'اختر الدكتور'} />
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50">
-                    {availableDoctors.map((doctor) => (
-                      <SelectItem key={doctor.id} value={doctor.id}>
-                        {doctor.name} - {doctor.specialty}
-                      </SelectItem>
-                    ))}
+                    {doctorsLoading ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      </div>
+                    ) : doctors.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground text-sm">
+                        لا يوجد أطباء في هذه العيادة
+                      </div>
+                    ) : (
+                      doctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name} - {doctor.specialty}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 {errors.doctor && (
@@ -471,7 +503,7 @@ export default function BookAppointmentModal({
                 </Label>
                 <div className="grid grid-cols-4 gap-2">
                   {timeSlots.map((slot) => {
-                    const isBooked = bookedSlots.includes(slot);
+                    const isBooked = isTimeSlotBooked(slot);
                     const isSelected = selectedTime === slot;
                     return (
                       <button
@@ -484,7 +516,7 @@ export default function BookAppointmentModal({
                             ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted'
                             : isSelected
                             ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-card border-border hover:border-primary hover:text-primary'
+                            : 'bg-card hover:bg-primary/10 hover:border-primary border-border'
                         )}
                       >
                         {slot}
@@ -506,10 +538,7 @@ export default function BookAppointmentModal({
                 <Label className="text-sm font-medium text-foreground mb-1.5 block">
                   نوع الموعد <span className="text-destructive">*</span>
                 </Label>
-                <Select
-                  value={appointmentType}
-                  onValueChange={setAppointmentType}
-                >
+                <Select value={appointmentType} onValueChange={setAppointmentType}>
                   <SelectTrigger
                     className={errors.appointmentType ? 'border-destructive' : ''}
                   >
@@ -524,9 +553,7 @@ export default function BookAppointmentModal({
                   </SelectContent>
                 </Select>
                 {errors.appointmentType && (
-                  <p className="text-xs text-destructive mt-1">
-                    {errors.appointmentType}
-                  </p>
+                  <p className="text-xs text-destructive mt-1">{errors.appointmentType}</p>
                 )}
               </div>
 
@@ -557,10 +584,15 @@ export default function BookAppointmentModal({
                 />
               </div>
 
-              <div className="flex items-center justify-between py-2">
-                <Label className="text-sm font-medium text-foreground">
-                  إرسال تذكير للمريض
-                </Label>
+              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                <div>
+                  <Label className="text-sm font-medium text-foreground">
+                    إرسال تذكير
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    إرسال رسالة تذكير للمريض قبل الموعد
+                  </p>
+                </div>
                 <Switch checked={sendReminder} onCheckedChange={setSendReminder} />
               </div>
             </div>
@@ -569,23 +601,30 @@ export default function BookAppointmentModal({
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-          <div>
-            {currentStep > 1 && (
-              <Button variant="outline" onClick={handlePrev} className="gap-2">
+          <Button
+            variant="outline"
+            onClick={currentStep === 1 ? handleClose : handlePrev}
+            className="gap-2"
+          >
+            {currentStep === 1 ? (
+              'إلغاء'
+            ) : (
+              <>
                 <ChevronRight className="w-4 h-4" />
                 السابق
-              </Button>
+              </>
             )}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={handleClose}>
-              إلغاء
-            </Button>
-            <Button onClick={handleNext} className="gap-2">
-              {currentStep === 4 ? 'حفظ' : 'التالي'}
-              {currentStep < 4 && <ChevronLeft className="w-4 h-4" />}
-            </Button>
-          </div>
+          </Button>
+          <Button onClick={handleNext} className="gap-2">
+            {currentStep === 4 ? (
+              'حفظ'
+            ) : (
+              <>
+                التالي
+                <ChevronLeft className="w-4 h-4" />
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>

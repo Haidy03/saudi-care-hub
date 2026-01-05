@@ -1,84 +1,99 @@
 import { useState, useMemo } from 'react';
-import { Users, Search, Filter, Plus, Eye, Edit, Trash2 } from 'lucide-react';
+import { Users, Search, Filter, Plus, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AddPatientModal from '@/components/patients/AddPatientModal';
-
-interface Patient {
-  id: string;
-  name: string;
-  gender: 'male' | 'female';
-  age: number;
-  phone: string;
-  registrationDate: string;
-}
-
-const calculateAge = (birthDate: string): number => {
-  const today = new Date();
-  const birth = new Date(birthDate);
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-};
-
-const initialPatients: Patient[] = [
-  { id: '1', name: 'محمد أحمد السالم', gender: 'male', age: 35, phone: '0551234567', registrationDate: '2025-01-04' },
-  { id: '2', name: 'فاطمة علي العتيبي', gender: 'female', age: 28, phone: '0559876543', registrationDate: '2025-01-04' },
-  { id: '3', name: 'عبدالله خالد المطيري', gender: 'male', age: 42, phone: '0555551234', registrationDate: '2025-01-03' },
-  { id: '4', name: 'سارة محمد القحطاني', gender: 'female', age: 31, phone: '0558887777', registrationDate: '2025-01-03' },
-  { id: '5', name: 'خالد عبدالرحمن الشمري', gender: 'male', age: 55, phone: '0554443333', registrationDate: '2025-01-02' },
-  { id: '6', name: 'نورة سعود الدوسري', gender: 'female', age: 24, phone: '0557776666', registrationDate: '2025-01-02' },
-  { id: '7', name: 'أحمد ناصر الغامدي', gender: 'male', age: 38, phone: '0552221111', registrationDate: '2025-01-01' },
-];
+import { usePatients, useCreatePatient, useDeletePatient, calculateAge } from '@/hooks/usePatients';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [patients, setPatients] = useState<Patient[]>(initialPatients);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deletingPatient, setDeletingPatient] = useState<{ id: string; name: string } | null>(null);
+
+  const { data: patients = [], isLoading, error } = usePatients();
+  const createPatient = useCreatePatient();
+  const deletePatient = useDeletePatient();
 
   const filteredPatients = useMemo(() => {
     if (!searchQuery.trim()) return patients;
     const query = searchQuery.toLowerCase();
     return patients.filter(
       (patient) =>
-        patient.name.toLowerCase().includes(query) ||
+        patient.full_name.toLowerCase().includes(query) ||
         patient.phone.includes(query)
     );
   }, [searchQuery, patients]);
 
-  const handleAddPatient = (formData: any) => {
-    const newPatient: Patient = {
-      id: String(patients.length + 1),
-      name: formData.fullName,
-      gender: formData.gender as 'male' | 'female',
-      age: calculateAge(formData.birthDate),
-      phone: formData.phone,
-      registrationDate: new Date().toISOString().split('T')[0],
-    };
-    setPatients((prev) => [newPatient, ...prev]);
-    setIsModalOpen(false);
-    toast.success('تم إضافة المريض بنجاح');
+  const handleAddPatient = async (formData: any) => {
+    try {
+      await createPatient.mutateAsync({
+        full_name: formData.fullName,
+        gender: formData.gender,
+        birth_date: formData.birthDate,
+        national_id: formData.nationalId,
+        phone: formData.phone,
+        alt_phone: formData.altPhone || null,
+        email: formData.email || null,
+        address: formData.address || null,
+        blood_type: formData.bloodType || null,
+        chronic_diseases: formData.chronicDiseases || null,
+        allergies: formData.allergies || null,
+        emergency_contact_name: formData.emergencyContactName,
+        emergency_contact_phone: formData.emergencyContactPhone,
+        emergency_contact_relation: formData.emergencyContactRelation,
+      });
+      setIsModalOpen(false);
+      toast.success('تم إضافة المريض بنجاح');
+    } catch (err: any) {
+      if (err.code === '23505') {
+        toast.error('رقم الهوية مسجل مسبقاً');
+      } else {
+        toast.error('حدث خطأ أثناء إضافة المريض');
+      }
+    }
   };
 
-  const handleView = (patient: Patient) => {
-    toast.info(`عرض بيانات: ${patient.name}`);
+  const handleView = (patient: any) => {
+    toast.info(`عرض بيانات: ${patient.full_name}`);
   };
 
-  const handleEdit = (patient: Patient) => {
-    toast.info(`تعديل بيانات: ${patient.name}`);
+  const handleEdit = (patient: any) => {
+    toast.info(`تعديل بيانات: ${patient.full_name}`);
   };
 
-  const handleDelete = (patient: Patient) => {
-    toast.error(`حذف المريض: ${patient.name}`);
+  const handleConfirmDelete = async () => {
+    if (!deletingPatient) return;
+    try {
+      await deletePatient.mutateAsync(deletingPatient.id);
+      toast.success('تم حذف المريض بنجاح');
+    } catch (err) {
+      toast.error('حدث خطأ أثناء حذف المريض');
+    }
+    setDeletingPatient(null);
   };
 
   const handleFilter = () => {
     toast.info('سيتم فتح خيارات الفلترة');
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-destructive">حدث خطأ في تحميل البيانات</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -156,10 +171,16 @@ export default function Patients() {
               </tr>
             </thead>
             <tbody>
-              {filteredPatients.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                  </td>
+                </tr>
+              ) : filteredPatients.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-muted-foreground">
-                    لا توجد نتائج مطابقة للبحث
+                    {searchQuery ? 'لا توجد نتائج مطابقة للبحث' : 'لا يوجد مرضى مسجلين'}
                   </td>
                 </tr>
               ) : (
@@ -173,10 +194,10 @@ export default function Patients() {
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <span className="text-sm font-medium text-primary">
-                            {patient.name.charAt(0)}
+                            {patient.full_name.charAt(0)}
                           </span>
                         </div>
-                        <span className="font-medium text-foreground">{patient.name}</span>
+                        <span className="font-medium text-foreground">{patient.full_name}</span>
                       </div>
                     </td>
 
@@ -186,7 +207,7 @@ export default function Patients() {
                         className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${
                           patient.gender === 'male'
                             ? 'bg-primary/10 text-primary'
-                            : 'bg-pink/10 text-pink'
+                            : 'bg-pink-100 text-pink-600'
                         }`}
                       >
                         {patient.gender === 'male' ? 'ذكر' : 'أنثى'}
@@ -195,7 +216,7 @@ export default function Patients() {
 
                     {/* Age */}
                     <td className="py-3 px-6 text-foreground">
-                      {patient.age} سنة
+                      {calculateAge(patient.birth_date)} سنة
                     </td>
 
                     {/* Phone */}
@@ -207,7 +228,7 @@ export default function Patients() {
 
                     {/* Registration Date */}
                     <td className="py-3 px-6 text-muted-foreground">
-                      {patient.registrationDate}
+                      {new Date(patient.created_at).toLocaleDateString('ar-SA')}
                     </td>
 
                     {/* Actions */}
@@ -222,13 +243,13 @@ export default function Patients() {
                         </button>
                         <button
                           onClick={() => handleEdit(patient)}
-                          className="p-2 rounded-lg hover:bg-success/10 text-success transition-colors"
+                          className="p-2 rounded-lg hover:bg-green-100 text-green-600 transition-colors"
                           title="تعديل"
                         >
                           <Edit className="w-[18px] h-[18px]" />
                         </button>
                         <button
-                          onClick={() => handleDelete(patient)}
+                          onClick={() => setDeletingPatient({ id: patient.id, name: patient.full_name })}
                           className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
                           title="حذف"
                         >
@@ -257,6 +278,28 @@ export default function Patients() {
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddPatient}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingPatient} onOpenChange={() => setDeletingPatient(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف المريض "{deletingPatient?.name}"؟ سيتم حذف جميع المواعيد المرتبطة بهذا المريض.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete} 
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={deletePatient.isPending}
+            >
+              {deletePatient.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'حذف'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -50,14 +50,20 @@ interface Doctor {
   iconColor: string;
 }
 
+interface ClinicOption {
+  id: string;
+  name: string;
+}
+
 interface AddDoctorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (doctor: Omit<Doctor, 'id' | 'iconColor'>) => void;
+  onSave: (doctor: Omit<Doctor, 'id' | 'iconColor'> & { schedule?: any[] }) => void;
   editDoctor?: Doctor | null;
+  clinics?: ClinicOption[];
 }
 
-const clinics = [
+const defaultClinics = [
   'عيادة الأسنان',
   'عيادة العظام',
   'عيادة الجلدية',
@@ -109,7 +115,8 @@ const initialFormData: DoctorFormData = {
   schedule: initialSchedule,
 };
 
-export default function AddDoctorModal({ isOpen, onClose, onSave, editDoctor }: AddDoctorModalProps) {
+export default function AddDoctorModal({ isOpen, onClose, onSave, editDoctor, clinics }: AddDoctorModalProps) {
+  const clinicOptions = clinics?.map(c => c.name) || defaultClinics;
   const [formData, setFormData] = useState<DoctorFormData>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'info' | 'schedule'>('info');
@@ -308,7 +315,7 @@ export default function AddDoctorModal({ isOpen, onClose, onSave, editDoctor }: 
                         <SelectValue placeholder="اختر العيادة" />
                       </SelectTrigger>
                       <SelectContent>
-                        {clinics.map((clinic) => (
+                        {clinicOptions.map((clinic) => (
                           <SelectItem key={clinic} value={clinic}>
                             {clinic}
                           </SelectItem>

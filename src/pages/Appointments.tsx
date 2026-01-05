@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, Plus, Edit, Trash2, Table, CalendarDays } from 'lucide-react';
+import { Calendar, Plus, Edit, Trash2, Table, CalendarDays, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import {
@@ -14,86 +14,107 @@ import {
 } from '@/components/ui/alert-dialog';
 import BookAppointmentModal from '@/components/appointments/BookAppointmentModal';
 import AddPatientModal from '@/components/patients/AddPatientModal';
+import { useAppointments, useCancelAppointment, useCreateAppointment, formatTimeForDisplay, formatTimeForDatabase, AppointmentWithDetails } from '@/hooks/useAppointments';
+import { useCreatePatient } from '@/hooks/usePatients';
 
 type ViewMode = 'table' | 'calendar';
-type AppointmentStatus = 'upcoming' | 'completed' | 'cancelled';
-
-interface Appointment {
-  id: string;
-  patientName: string;
-  clinic: string;
-  doctor: string;
-  date: string;
-  time: string;
-  status: AppointmentStatus;
-}
-
-const initialAppointments: Appointment[] = [
-  { id: '1', patientName: 'أحمد عبدالله', clinic: 'عيادة الأسنان', doctor: 'د. سارة الأحمد', date: '2025-01-05', time: '10:00 ص', status: 'upcoming' },
-  { id: '2', patientName: 'نورة سعد', clinic: 'عيادة العظام', doctor: 'د. محمد العمري', date: '2025-01-05', time: '11:30 ص', status: 'upcoming' },
-  { id: '3', patientName: 'خالد فهد', clinic: 'عيادة الجلدية', doctor: 'د. ليلى الشهري', date: '2025-01-05', time: '02:00 م', status: 'upcoming' },
-  { id: '4', patientName: 'ريم أحمد', clinic: 'عيادة الأطفال', doctor: 'د. عمر الزهراني', date: '2025-01-04', time: '09:00 ص', status: 'completed' },
-  { id: '5', patientName: 'سلطان محمد', clinic: 'عيادة الباطنة', doctor: 'د. هند العتيبي', date: '2025-01-04', time: '03:00 م', status: 'cancelled' },
-  { id: '6', patientName: 'لمى عبدالرحمن', clinic: 'عيادة العيون', doctor: 'د. فيصل الدوسري', date: '2025-01-04', time: '04:30 م', status: 'completed' },
-  { id: '7', patientName: 'فهد سالم', clinic: 'عيادة الأسنان', doctor: 'د. سارة الأحمد', date: '2025-01-03', time: '10:30 ص', status: 'completed' },
-  { id: '8', patientName: 'منى خالد', clinic: 'عيادة النساء', doctor: 'د. نوف القحطاني', date: '2025-01-03', time: '01:00 م', status: 'cancelled' },
-];
 
 const statusConfig = {
   upcoming: { label: 'قادم', className: 'bg-primary/10 text-primary' },
-  completed: { label: 'مكتمل', className: 'bg-success/10 text-success' },
+  completed: { label: 'مكتمل', className: 'bg-green-100 text-green-600' },
   cancelled: { label: 'ملغي', className: 'bg-destructive/10 text-destructive' },
 };
 
 export default function Appointments() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
 
-  const handleBookAppointment = (data: any) => {
-    const newAppointment: Appointment = {
-      id: String(appointments.length + 1),
-      patientName: data.patientName,
-      clinic: data.clinic,
-      doctor: data.doctor,
-      date: data.date,
-      time: data.time,
-      status: 'upcoming',
-    };
-    setAppointments((prev) => [newAppointment, ...prev]);
-    setIsBookingModalOpen(false);
-    toast.success('تم حجز الموعد بنجاح');
+  const { data: appointments = [], isLoading, error } = useAppointments();
+  const createAppointment = useCreateAppointment();
+  const cancelAppointment = useCancelAppointment();
+  const createPatient = useCreatePatient();
+
+  const handleBookAppointment = async (data: any) => {
+    try {
+      await createAppointment.mutateAsync({
+        patient_id: data.patientId,
+        doctor_id: data.doctorId,
+        clinic_id: data.clinicId,
+        appointment_date: data.date,
+        appointment_time: formatTimeForDatabase(data.time),
+        appointment_type: data.appointmentType as 'general' | 'followup' | 'consultation' | 'emergency',
+        reason: data.reason,
+        notes: data.notes || null,
+        send_reminder: data.sendReminder,
+      });
+      setIsBookingModalOpen(false);
+      toast.success('تم حجز الموعد بنجاح');
+    } catch (err) {
+      toast.error('حدث خطأ أثناء حجز الموعد');
+    }
   };
 
-  const handleAddPatient = (data: any) => {
-    toast.success('تم إضافة المريض بنجاح');
-    setIsPatientModalOpen(false);
+  const handleAddPatient = async (data: any) => {
+    try {
+      await createPatient.mutateAsync({
+        full_name: data.fullName,
+        gender: data.gender,
+        birth_date: data.birthDate,
+        national_id: data.nationalId,
+        phone: data.phone,
+        alt_phone: data.altPhone || null,
+        email: data.email || null,
+        address: data.address || null,
+        blood_type: data.bloodType || null,
+        chronic_diseases: data.chronicDiseases || null,
+        allergies: data.allergies || null,
+        emergency_contact_name: data.emergencyContactName,
+        emergency_contact_phone: data.emergencyContactPhone,
+        emergency_contact_relation: data.emergencyContactRelation,
+      });
+      toast.success('تم إضافة المريض بنجاح');
+      setIsPatientModalOpen(false);
+    } catch (err: any) {
+      if (err.code === '23505') {
+        toast.error('رقم الهوية مسجل مسبقاً');
+      } else {
+        toast.error('حدث خطأ أثناء إضافة المريض');
+      }
+    }
   };
 
-  const handleEdit = (appointment: Appointment) => {
-    toast.info(`تعديل موعد: ${appointment.patientName} - ${appointment.clinic} - ${appointment.date} ${appointment.time}`);
+  const handleEdit = (appointment: AppointmentWithDetails) => {
+    toast.info(`تعديل موعد: ${appointment.patients?.full_name}`);
   };
 
-  const handleDeleteClick = (appointment: Appointment) => {
+  const handleDeleteClick = (appointment: AppointmentWithDetails) => {
     setSelectedAppointment(appointment);
     setDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (selectedAppointment) {
-      setAppointments((prev) =>
-        prev.map((apt) =>
-          apt.id === selectedAppointment.id ? { ...apt, status: 'cancelled' as AppointmentStatus } : apt
-        )
-      );
-      toast.success(`تم إلغاء موعد: ${selectedAppointment.patientName}`);
+      try {
+        await cancelAppointment.mutateAsync(selectedAppointment.id);
+        toast.success(`تم إلغاء موعد: ${selectedAppointment.patients?.full_name}`);
+      } catch (err) {
+        toast.error('حدث خطأ أثناء إلغاء الموعد');
+      }
     }
     setDeleteDialogOpen(false);
     setSelectedAppointment(null);
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <p className="text-destructive">حدث خطأ في تحميل البيانات</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -161,66 +182,91 @@ export default function Appointments() {
                 </tr>
               </thead>
               <tbody>
-                {appointments.map((appointment) => {
-                  const status = statusConfig[appointment.status];
-                  return (
-                    <tr
-                      key={appointment.id}
-                      className="border-b border-border/50 hover:bg-muted/30 transition-colors"
-                    >
-                      {/* Patient Name */}
-                      <td className="py-3 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <span className="text-sm font-medium text-primary">
-                              {appointment.patientName.charAt(0)}
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
+                    </td>
+                  </tr>
+                ) : appointments.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                      لا توجد مواعيد مسجلة
+                    </td>
+                  </tr>
+                ) : (
+                  appointments.map((appointment) => {
+                    const status = statusConfig[appointment.status as keyof typeof statusConfig];
+                    return (
+                      <tr
+                        key={appointment.id}
+                        className="border-b border-border/50 hover:bg-muted/30 transition-colors"
+                      >
+                        {/* Patient Name */}
+                        <td className="py-3 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-medium text-primary">
+                                {appointment.patients?.full_name?.charAt(0) || '?'}
+                              </span>
+                            </div>
+                            <span className="font-medium text-foreground">
+                              {appointment.patients?.full_name || 'غير محدد'}
                             </span>
                           </div>
-                          <span className="font-medium text-foreground">{appointment.patientName}</span>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Clinic */}
-                      <td className="py-3 px-6 text-foreground">{appointment.clinic}</td>
+                        {/* Clinic */}
+                        <td className="py-3 px-6 text-foreground">
+                          {appointment.clinics?.name || 'غير محدد'}
+                        </td>
 
-                      {/* Doctor */}
-                      <td className="py-3 px-6 text-foreground">{appointment.doctor}</td>
+                        {/* Doctor */}
+                        <td className="py-3 px-6 text-foreground">
+                          {appointment.doctors?.name || 'غير محدد'}
+                        </td>
 
-                      {/* Date */}
-                      <td className="py-3 px-6 text-muted-foreground">{appointment.date}</td>
+                        {/* Date */}
+                        <td className="py-3 px-6 text-muted-foreground">
+                          {new Date(appointment.appointment_date).toLocaleDateString('ar-SA')}
+                        </td>
 
-                      {/* Time */}
-                      <td className="py-3 px-6 text-foreground font-medium">{appointment.time}</td>
+                        {/* Time */}
+                        <td className="py-3 px-6 text-foreground font-medium">
+                          {formatTimeForDisplay(appointment.appointment_time)}
+                        </td>
 
-                      {/* Status */}
-                      <td className="py-3 px-6">
-                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${status.className}`}>
-                          {status.label}
-                        </span>
-                      </td>
+                        {/* Status */}
+                        <td className="py-3 px-6">
+                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${status?.className || ''}`}>
+                            {status?.label || appointment.status}
+                          </span>
+                        </td>
 
-                      {/* Actions */}
-                      <td className="py-3 px-6">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleEdit(appointment)}
-                            className="p-2 rounded-lg hover:bg-success/10 text-success transition-colors"
-                            title="تعديل"
-                          >
-                            <Edit className="w-[18px] h-[18px]" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClick(appointment)}
-                            className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
-                            title="إلغاء"
-                          >
-                            <Trash2 className="w-[18px] h-[18px]" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        {/* Actions */}
+                        <td className="py-3 px-6">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleEdit(appointment)}
+                              className="p-2 rounded-lg hover:bg-green-100 text-green-600 transition-colors"
+                              title="تعديل"
+                            >
+                              <Edit className="w-[18px] h-[18px]" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(appointment)}
+                              className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
+                              title="إلغاء"
+                              disabled={appointment.status === 'cancelled'}
+                            >
+                              <Trash2 className="w-[18px] h-[18px]" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -253,7 +299,7 @@ export default function Appointments() {
             <AlertDialogDescription>
               {selectedAppointment && (
                 <>
-                  موعد {selectedAppointment.patientName} مع {selectedAppointment.doctor} بتاريخ {selectedAppointment.date} الساعة {selectedAppointment.time}
+                  موعد {selectedAppointment.patients?.full_name} مع {selectedAppointment.doctors?.name} بتاريخ {new Date(selectedAppointment.appointment_date).toLocaleDateString('ar-SA')} الساعة {formatTimeForDisplay(selectedAppointment.appointment_time)}
                 </>
               )}
             </AlertDialogDescription>
@@ -263,8 +309,9 @@ export default function Appointments() {
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className="bg-destructive hover:bg-destructive/90"
+              disabled={cancelAppointment.isPending}
             >
-              تأكيد الإلغاء
+              {cancelAppointment.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'تأكيد الإلغاء'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
