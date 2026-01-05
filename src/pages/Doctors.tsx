@@ -1,137 +1,144 @@
-import { Stethoscope, Plus, Phone, Mail, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Stethoscope, Plus, MoreVertical } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 const doctors = [
   { 
-    id: '١', 
-    name: 'د. سارة الخالد', 
-    specialty: 'طب عام', 
-    phone: '٠٥٥١٢٣٤٥٦٧',
-    available: true,
-    patients: '١٢٠',
-    experience: '٨ سنوات'
+    id: 1, 
+    name: 'د. سارة الأحمد', 
+    specialty: 'طب الأسنان',
+    clinic: 'عيادة الأسنان',
+    phone: '0551111111',
+    experience: '8 سنوات',
+    status: 'نشط',
+    iconColor: 'bg-blue-100 text-blue-600'
   },
   { 
-    id: '٢', 
-    name: 'د. خالد السعود', 
-    specialty: 'أمراض القلب', 
-    phone: '٠٥٠٩٨٧٦٥٤٣',
-    available: true,
-    patients: '٨٥',
-    experience: '١٢ سنة'
+    id: 2, 
+    name: 'د. محمد العمري', 
+    specialty: 'طب العظام',
+    clinic: 'عيادة العظام',
+    phone: '0552222222',
+    experience: '12 سنوات',
+    status: 'نشط',
+    iconColor: 'bg-green-100 text-green-600'
   },
   { 
-    id: '٣', 
-    name: 'د. نورة الأحمد', 
-    specialty: 'طب الأطفال', 
-    phone: '٠٥٤٣٢١٦٥٤٩',
-    available: false,
-    patients: '١٥٠',
-    experience: '١٠ سنوات'
+    id: 3, 
+    name: 'د. ليلى الشهري', 
+    specialty: 'طب الجلدية',
+    clinic: 'عيادة الجلدية',
+    phone: '0553333333',
+    experience: '10 سنوات',
+    status: 'نشط',
+    iconColor: 'bg-purple-100 text-purple-600'
   },
   { 
-    id: '٤', 
-    name: 'د. عبدالرحمن المالكي', 
-    specialty: 'جلدية', 
-    phone: '٠٥٦٧٨٩٠١٢٣',
-    available: true,
-    patients: '٩٥',
-    experience: '٦ سنوات'
+    id: 4, 
+    name: 'د. عمر الزهراني', 
+    specialty: 'طب الأطفال',
+    clinic: 'عيادة الأطفال',
+    phone: '0554444444',
+    experience: '6 سنوات',
+    status: 'نشط',
+    iconColor: 'bg-orange-100 text-orange-600'
   },
   { 
-    id: '٥', 
-    name: 'د. منى الحربي', 
-    specialty: 'عظام', 
-    phone: '٠٥٢٣٤٥٦٧٨٩',
-    available: true,
-    patients: '٧٥',
-    experience: '٩ سنوات'
+    id: 5, 
+    name: 'د. هند العتيبي', 
+    specialty: 'الباطنة',
+    clinic: 'عيادة الباطنة',
+    phone: '0555555555',
+    experience: '15 سنوات',
+    status: 'نشط',
+    iconColor: 'bg-pink-100 text-pink-600'
   },
   { 
-    id: '٦', 
-    name: 'د. فهد القحطاني', 
-    specialty: 'باطنية', 
-    phone: '٠٥٨٧٦٥٤٣٢١',
-    available: false,
-    patients: '١١٠',
-    experience: '١٥ سنة'
+    id: 6, 
+    name: 'د. فهد الشمري', 
+    specialty: 'الجراحة العامة',
+    clinic: 'عيادة الجراحة',
+    phone: '0556666666',
+    experience: '18 سنوات',
+    status: 'في إجازة',
+    iconColor: 'bg-red-100 text-red-600'
   },
 ];
 
 export default function Doctors() {
-  const availableCount = doctors.filter(d => d.available).length;
+  const handleAddDoctor = () => {
+    alert('سيتم فتح نموذج إضافة دكتور');
+  };
+
+  const handleMenuClick = (doctorName: string) => {
+    alert(`قائمة الخيارات: تعديل، عرض الجدول، تعطيل\nالدكتور: ${doctorName}`);
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Stethoscope className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">الأطباء</h1>
-            <p className="text-muted-foreground">{availableCount} من {doctors.length} أطباء متاحين</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">إدارة الأطباء</h1>
+          <p className="text-sm text-muted-foreground">إدارة الأطباء والتخصصات</p>
         </div>
-        <Button className="gap-2">
+        <Button onClick={handleAddDoctor} className="gap-2">
           <Plus className="w-4 h-4" />
-          إضافة طبيب
+          إضافة دكتور
         </Button>
       </div>
 
       {/* Doctors Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {doctors.map((doctor) => (
-          <Card key={doctor.id} className="border-border/50 shadow-sm hover:shadow-md transition-all">
+          <Card 
+            key={doctor.id} 
+            className="relative bg-card shadow-sm hover:shadow-md transition-shadow duration-200"
+          >
             <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Stethoscope className="w-7 h-7 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-foreground">{doctor.name}</h3>
-                    <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
-                  </div>
-                </div>
-                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                  doctor.available 
-                    ? 'bg-success/10 text-success' 
-                    : 'bg-muted text-muted-foreground'
-                }`}>
-                  {doctor.available ? 'متاح' : 'غير متاح'}
-                </span>
-              </div>
+              {/* Menu Button */}
+              <button
+                onClick={() => handleMenuClick(doctor.name)}
+                className="absolute top-4 left-4 p-1.5 rounded-lg hover:bg-muted transition-colors"
+              >
+                <MoreVertical className="w-5 h-5 text-muted-foreground" />
+              </button>
 
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>الخبرة: {doctor.experience}</span>
+              {/* Doctor Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${doctor.iconColor}`}>
+                  <Stethoscope className="w-6 h-6" />
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span>{doctor.phone}</span>
+                <div>
+                  <h3 className="font-bold text-foreground">{doctor.name}</h3>
+                  <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-border/50">
+              {/* Info Rows */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">المرضى</span>
-                  <span className="font-medium text-foreground">{doctor.patients} مريض</span>
+                  <span className="text-muted-foreground">العيادة:</span>
+                  <span className="font-medium text-foreground">{doctor.clinic}</span>
                 </div>
-              </div>
-
-              <div className="flex gap-2 mt-4">
-                <Button variant="outline" size="sm" className="flex-1 gap-2">
-                  <Phone className="w-4 h-4" />
-                  اتصال
-                </Button>
-                <Button variant="outline" size="sm" className="flex-1 gap-2">
-                  <Mail className="w-4 h-4" />
-                  رسالة
-                </Button>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">الهاتف:</span>
+                  <span className="font-medium text-foreground" dir="ltr">{doctor.phone}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">سنوات الخبرة:</span>
+                  <span className="font-medium text-foreground">{doctor.experience}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">الحالة:</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    doctor.status === 'نشط' 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {doctor.status}
+                  </span>
+                </div>
               </div>
             </CardContent>
           </Card>
