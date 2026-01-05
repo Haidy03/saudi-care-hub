@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,16 +12,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Upload, Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  useCenterSettings, 
+  useSystemSettings, 
+  useWorkingHours, 
+  useUpdateCenterSettings, 
+  useUpdateSystemSettings,
+  useUpdateWorkingHours
+} from '@/hooks/useSettings';
+import { useClinicWithDoctorCount, useDeleteClinic } from '@/hooks/useClinics';
 
-const DAYS = [
-  { id: 'saturday', label: 'السبت' },
-  { id: 'sunday', label: 'الأحد' },
-  { id: 'monday', label: 'الإثنين' },
-  { id: 'tuesday', label: 'الثلاثاء' },
-  { id: 'wednesday', label: 'الأربعاء' },
-  { id: 'thursday', label: 'الخميس' },
-  { id: 'friday', label: 'الجمعة' },
-];
+const DAYS_MAP: Record<string, string> = {
+  'saturday': 'السبت',
+  'sunday': 'الأحد',
+  'monday': 'الإثنين',
+  'tuesday': 'الثلاثاء',
+  'wednesday': 'الأربعاء',
+  'thursday': 'الخميس',
+  'friday': 'الجمعة',
+};
 
 const CITIES = [
   'الرياض',
@@ -35,45 +44,40 @@ const CITIES = [
   'القصيم',
 ];
 
-const initialClinics = [
-  { id: 1, name: 'عيادة الأسنان', doctorCount: 3, status: 'active' },
-  { id: 2, name: 'عيادة العظام', doctorCount: 2, status: 'active' },
-  { id: 3, name: 'عيادة الجلدية', doctorCount: 2, status: 'active' },
-  { id: 4, name: 'عيادة الأطفال', doctorCount: 1, status: 'active' },
-  { id: 5, name: 'عيادة الباطنة', doctorCount: 2, status: 'active' },
-];
-
-const initialWorkingHours = DAYS.reduce((acc, day) => {
-  acc[day.id] = {
-    isOpen: day.id !== 'friday',
-    from: '08:00',
-    to: '17:00',
-  };
-  return acc;
-}, {} as Record<string, { isOpen: boolean; from: string; to: string }>);
-
 export default function Settings() {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
-  const [clinics, setClinics] = useState(initialClinics);
+
+  // Fetch data
+  const { data: centerSettings, isLoading: centerLoading } = useCenterSettings();
+  const { data: systemSettings, isLoading: systemLoading } = useSystemSettings();
+  const { data: workingHours = [], isLoading: hoursLoading } = useWorkingHours();
+  const { data: clinicsWithCount = [], isLoading: clinicsLoading } = useClinicWithDoctorCount();
+
+  // Mutations
+  const updateCenterSettings = useUpdateCenterSettings();
+  const updateSystemSettings = useUpdateSystemSettings();
+  const updateWorkingHours = useUpdateWorkingHours();
+  const deleteClinic = useDeleteClinic();
 
   // Center Info State
   const [centerInfo, setCenterInfo] = useState({
-    nameAr: 'مركز الرعاية الصحية',
-    nameEn: 'Healthcare Center',
-    phone: '0112345678',
+    nameAr: '',
+    nameEn: '',
+    phone: '',
     altPhone: '',
-    email: 'info@healthcare.sa',
+    email: '',
     website: '',
     address: '',
     city: 'الرياض',
     postalCode: '',
   });
 
-  const [workingHours, setWorkingHours] = useState(initialWorkingHours);
+  // Working Hours State
+  const [localWorkingHours, setLocalWorkingHours] = useState<any[]>([]);
 
   // System Settings State
-  const [systemSettings, setSystemSettings] = useState({
+  const [localSystemSettings, setLocalSystemSettings] = useState({
     language: 'ar',
     dateFormat: 'gregorian',
     timeFormat: '12',
@@ -87,34 +91,151 @@ export default function Settings() {
     emailEnabled: false,
   });
 
+  // Initialize states from fetched data
+  useEffect(() => {
+    if (centerSettings) {
+      setCenterInfo({
+        nameAr: centerSettings.name_ar || '',
+        nameEn: centerSettings.name_en || '',
+        phone: centerSettings.phone || '',
+        altPhone: centerSettings.alt_phone || '',
+        email: centerSettings.email || '',
+        website: centerSettings.website || '',
+        address: centerSettings.address || '',
+        city: centerSettings.city || 'الرياض',
+        postalCode: centerSettings.postal_code || '',
+      });
+    }
+  }, [centerSettings]);
+
+  useEffect(() => {
+    if (workingHours.length > 0) {
+      setLocalWorkingHours(workingHours.map(h => ({
+        id: h.id,
+        dayOfWeek: h.day_of_week,
+        isOpen: h.is_open,
+        openTime: h.open_time,
+        closeTime: h.close_time,
+      })));
+    }
+  }, [workingHours]);
+
+  useEffect(() => {
+    if (systemSettings) {
+      setLocalSystemSettings({
+        language: systemSettings.language || 'ar',
+        dateFormat: systemSettings.date_format || 'gregorian',
+        timeFormat: systemSettings.time_format || '12',
+        timezone: systemSettings.timezone || 'Asia/Riyadh',
+        defaultDuration: String(systemSettings.default_appointment_duration) || '30',
+        sameDayBooking: systemSettings.same_day_booking ?? true,
+        minNotice: systemSettings.min_notice_hours || 2,
+        smsEnabled: systemSettings.sms_enabled ?? true,
+        firstReminder: systemSettings.first_reminder_hours || 24,
+        secondReminder: systemSettings.second_reminder_hours || 2,
+        emailEnabled: systemSettings.email_enabled ?? false,
+      });
+    }
+  }, [systemSettings]);
+
   const handleSave = async () => {
     setIsSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Update center settings
+      if (centerSettings?.id) {
+        await updateCenterSettings.mutateAsync({
+          id: centerSettings.id,
+          name_ar: centerInfo.nameAr,
+          name_en: centerInfo.nameEn,
+          phone: centerInfo.phone,
+          alt_phone: centerInfo.altPhone || null,
+          email: centerInfo.email,
+          website: centerInfo.website || null,
+          address: centerInfo.address || null,
+          city: centerInfo.city,
+          postal_code: centerInfo.postalCode || null,
+        });
+      }
+
+      // Update system settings
+      if (systemSettings?.id) {
+        await updateSystemSettings.mutateAsync({
+          id: systemSettings.id,
+          language: localSystemSettings.language,
+          date_format: localSystemSettings.dateFormat,
+          time_format: localSystemSettings.timeFormat,
+          timezone: localSystemSettings.timezone,
+          default_appointment_duration: parseInt(localSystemSettings.defaultDuration),
+          same_day_booking: localSystemSettings.sameDayBooking,
+          min_notice_hours: localSystemSettings.minNotice,
+          sms_enabled: localSystemSettings.smsEnabled,
+          first_reminder_hours: localSystemSettings.firstReminder,
+          second_reminder_hours: localSystemSettings.secondReminder,
+          email_enabled: localSystemSettings.emailEnabled,
+        });
+      }
+
+      // Update working hours
+      if (localWorkingHours.length > 0) {
+        await updateWorkingHours.mutateAsync(
+          localWorkingHours.map(h => ({
+            id: h.id,
+            is_open: h.isOpen,
+            open_time: h.openTime,
+            close_time: h.closeTime,
+          }))
+        );
+      }
+
+      toast({
+        title: "تم حفظ الإعدادات بنجاح",
+        description: "تم تحديث جميع الإعدادات",
+      });
+    } catch (err) {
+      toast({
+        title: "خطأ",
+        description: "حدث خطأ أثناء حفظ الإعدادات",
+        variant: "destructive",
+      });
+    }
     setIsSaving(false);
-    toast({
-      title: "تم حفظ الإعدادات بنجاح",
-      description: "تم تحديث جميع الإعدادات",
-    });
   };
 
-  const handleWorkingHoursChange = (dayId: string, field: string, value: boolean | string) => {
-    setWorkingHours(prev => ({
-      ...prev,
-      [dayId]: {
-        ...prev[dayId],
-        [field]: value,
-      },
-    }));
+  const handleWorkingHoursChange = (dayOfWeek: string, field: string, value: boolean | string) => {
+    setLocalWorkingHours(prev => 
+      prev.map(h => 
+        h.dayOfWeek === dayOfWeek 
+          ? { ...h, [field]: value }
+          : h
+      )
+    );
   };
 
-  const handleDeleteClinic = (id: number) => {
-    setClinics(prev => prev.filter(clinic => clinic.id !== id));
-    toast({
-      title: "تم حذف العيادة",
-      description: "تم حذف العيادة بنجاح",
-    });
+  const handleDeleteClinic = async (id: string) => {
+    try {
+      await deleteClinic.mutateAsync(id);
+      toast({
+        title: "تم حذف العيادة",
+        description: "تم حذف العيادة بنجاح",
+      });
+    } catch (err) {
+      toast({
+        title: "خطأ",
+        description: "لا يمكن حذف العيادة - قد تكون مرتبطة بأطباء أو مواعيد",
+        variant: "destructive",
+      });
+    }
   };
+
+  const isLoading = centerLoading || systemLoading || hoursLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -291,21 +412,21 @@ export default function Settings() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {DAYS.map(day => (
-                      <TableRow key={day.id}>
-                        <TableCell className="font-medium">{day.label}</TableCell>
+                    {localWorkingHours.map(day => (
+                      <TableRow key={day.dayOfWeek}>
+                        <TableCell className="font-medium">{DAYS_MAP[day.dayOfWeek]}</TableCell>
                         <TableCell>
                           <Checkbox
-                            checked={workingHours[day.id].isOpen}
-                            onCheckedChange={(checked) => handleWorkingHoursChange(day.id, 'isOpen', !!checked)}
+                            checked={day.isOpen}
+                            onCheckedChange={(checked) => handleWorkingHoursChange(day.dayOfWeek, 'isOpen', !!checked)}
                           />
                         </TableCell>
                         <TableCell>
                           <Input
                             type="time"
-                            value={workingHours[day.id].from}
-                            onChange={(e) => handleWorkingHoursChange(day.id, 'from', e.target.value)}
-                            disabled={!workingHours[day.id].isOpen}
+                            value={day.openTime}
+                            onChange={(e) => handleWorkingHoursChange(day.dayOfWeek, 'openTime', e.target.value)}
+                            disabled={!day.isOpen}
                             className="w-32"
                             dir="ltr"
                           />
@@ -313,9 +434,9 @@ export default function Settings() {
                         <TableCell>
                           <Input
                             type="time"
-                            value={workingHours[day.id].to}
-                            onChange={(e) => handleWorkingHoursChange(day.id, 'to', e.target.value)}
-                            disabled={!workingHours[day.id].isOpen}
+                            value={day.closeTime}
+                            onChange={(e) => handleWorkingHoursChange(day.dayOfWeek, 'closeTime', e.target.value)}
+                            disabled={!day.isOpen}
                             className="w-32"
                             dir="ltr"
                           />
@@ -350,34 +471,49 @@ export default function Settings() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {clinics.map(clinic => (
-                  <TableRow key={clinic.id}>
-                    <TableCell className="font-medium">{clinic.name}</TableCell>
-                    <TableCell>
-                      {clinic.doctorCount} {clinic.doctorCount === 1 ? 'طبيب' : 'أطباء'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100">
-                        نشط
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteClinic(clinic.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                {clinicsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : clinicsWithCount.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      لا توجد عيادات مسجلة
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  clinicsWithCount.map(clinic => (
+                    <TableRow key={clinic.id}>
+                      <TableCell className="font-medium">{clinic.name}</TableCell>
+                      <TableCell>
+                        {clinic.doctorCount} {clinic.doctorCount === 1 ? 'طبيب' : 'أطباء'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={clinic.status === 'active' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-700 hover:bg-gray-100'}>
+                          {clinic.status === 'active' ? 'نشط' : 'غير نشط'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteClinic(clinic.id)}
+                            disabled={deleteClinic.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -393,8 +529,8 @@ export default function Settings() {
                 <div className="space-y-3">
                   <Label>اللغة الافتراضية</Label>
                   <RadioGroup
-                    value={systemSettings.language}
-                    onValueChange={(value) => setSystemSettings(prev => ({ ...prev, language: value }))}
+                    value={localSystemSettings.language}
+                    onValueChange={(value) => setLocalSystemSettings(prev => ({ ...prev, language: value }))}
                     className="flex gap-6"
                   >
                     <div className="flex items-center gap-2">
@@ -412,8 +548,8 @@ export default function Settings() {
                   <div className="space-y-2">
                     <Label>تنسيق التاريخ</Label>
                     <Select
-                      value={systemSettings.dateFormat}
-                      onValueChange={(value) => setSystemSettings(prev => ({ ...prev, dateFormat: value }))}
+                      value={localSystemSettings.dateFormat}
+                      onValueChange={(value) => setLocalSystemSettings(prev => ({ ...prev, dateFormat: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -425,20 +561,19 @@ export default function Settings() {
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div className="space-y-2">
                     <Label>المنطقة الزمنية</Label>
                     <Select
-                      value={systemSettings.timezone}
-                      onValueChange={(value) => setSystemSettings(prev => ({ ...prev, timezone: value }))}
+                      value={localSystemSettings.timezone}
+                      onValueChange={(value) => setLocalSystemSettings(prev => ({ ...prev, timezone: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Asia/Riyadh">Asia/Riyadh (UTC+3)</SelectItem>
-                        <SelectItem value="Asia/Dubai">Asia/Dubai (UTC+4)</SelectItem>
-                        <SelectItem value="Asia/Kuwait">Asia/Kuwait (UTC+3)</SelectItem>
+                        <SelectItem value="Asia/Riyadh">توقيت الرياض (UTC+3)</SelectItem>
+                        <SelectItem value="Asia/Dubai">توقيت دبي (UTC+4)</SelectItem>
+                        <SelectItem value="Asia/Kuwait">توقيت الكويت (UTC+3)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -447,8 +582,8 @@ export default function Settings() {
                 <div className="space-y-3">
                   <Label>تنسيق الوقت</Label>
                   <RadioGroup
-                    value={systemSettings.timeFormat}
-                    onValueChange={(value) => setSystemSettings(prev => ({ ...prev, timeFormat: value }))}
+                    value={localSystemSettings.timeFormat}
+                    onValueChange={(value) => setLocalSystemSettings(prev => ({ ...prev, timeFormat: value }))}
                     className="flex gap-6"
                   >
                     <div className="flex items-center gap-2">
@@ -468,46 +603,50 @@ export default function Settings() {
             <div>
               <h3 className="font-semibold text-foreground mb-4">إعدادات المواعيد</h3>
               <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>مدة الموعد الافتراضية</Label>
-                  <Select
-                    value={systemSettings.defaultDuration}
-                    onValueChange={(value) => setSystemSettings(prev => ({ ...prev, defaultDuration: value }))}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 دقيقة</SelectItem>
-                      <SelectItem value="30">30 دقيقة</SelectItem>
-                      <SelectItem value="45">45 دقيقة</SelectItem>
-                      <SelectItem value="60">60 دقيقة</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center justify-between py-3 border-b border-border">
-                  <Label htmlFor="same-day" className="font-normal">السماح بالمواعيد في نفس اليوم</Label>
-                  <Switch
-                    id="same-day"
-                    checked={systemSettings.sameDayBooking}
-                    onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, sameDayBooking: checked }))}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>الحد الأدنى للإشعار المسبق</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      value={systemSettings.minNotice}
-                      onChange={(e) => setSystemSettings(prev => ({ ...prev, minNotice: parseInt(e.target.value) || 0 }))}
-                      className="w-24"
-                      dir="ltr"
-                      min={0}
-                    />
-                    <span className="text-muted-foreground">ساعات</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>مدة الموعد الافتراضية</Label>
+                    <Select
+                      value={localSystemSettings.defaultDuration}
+                      onValueChange={(value) => setLocalSystemSettings(prev => ({ ...prev, defaultDuration: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15 دقيقة</SelectItem>
+                        <SelectItem value="30">30 دقيقة</SelectItem>
+                        <SelectItem value="45">45 دقيقة</SelectItem>
+                        <SelectItem value="60">60 دقيقة</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <div className="space-y-2">
+                    <Label>الحد الأدنى للإشعار المسبق</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={localSystemSettings.minNotice}
+                        onChange={(e) => setLocalSystemSettings(prev => ({ ...prev, minNotice: parseInt(e.target.value) || 0 }))}
+                        className="w-24"
+                      />
+                      <span className="text-muted-foreground">ساعات</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label>السماح بالمواعيد في نفس اليوم</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      السماح للمرضى بحجز مواعيد في نفس يوم الحجز
+                    </p>
+                  </div>
+                  <Switch
+                    checked={localSystemSettings.sameDayBooking}
+                    onCheckedChange={(checked) => setLocalSystemSettings(prev => ({ ...prev, sameDayBooking: checked }))}
+                  />
                 </div>
               </div>
             </div>
@@ -516,29 +655,32 @@ export default function Settings() {
             <div>
               <h3 className="font-semibold text-foreground mb-4">إعدادات التذكير</h3>
               <div className="space-y-4">
-                <div className="flex items-center justify-between py-3 border-b border-border">
-                  <Label htmlFor="sms-enabled" className="font-normal">تفعيل تذكير SMS</Label>
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label>تفعيل تذكير SMS</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      إرسال رسائل تذكير للمرضى قبل المواعيد
+                    </p>
+                  </div>
                   <Switch
-                    id="sms-enabled"
-                    checked={systemSettings.smsEnabled}
-                    onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, smsEnabled: checked }))}
+                    checked={localSystemSettings.smsEnabled}
+                    onCheckedChange={(checked) => setLocalSystemSettings(prev => ({ ...prev, smsEnabled: checked }))}
                   />
                 </div>
 
-                {systemSettings.smsEnabled && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ps-4 border-s-2 border-primary/20">
+                {localSystemSettings.smsEnabled && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pr-4">
                     <div className="space-y-2">
                       <Label>التذكير الأول</Label>
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
-                          value={systemSettings.firstReminder}
-                          onChange={(e) => setSystemSettings(prev => ({ ...prev, firstReminder: parseInt(e.target.value) || 0 }))}
+                          min={1}
+                          value={localSystemSettings.firstReminder}
+                          onChange={(e) => setLocalSystemSettings(prev => ({ ...prev, firstReminder: parseInt(e.target.value) || 24 }))}
                           className="w-24"
-                          dir="ltr"
-                          min={0}
                         />
-                        <span className="text-muted-foreground text-sm">ساعات قبل الموعد</span>
+                        <span className="text-muted-foreground">ساعات قبل الموعد</span>
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -546,24 +688,27 @@ export default function Settings() {
                       <div className="flex items-center gap-2">
                         <Input
                           type="number"
-                          value={systemSettings.secondReminder}
-                          onChange={(e) => setSystemSettings(prev => ({ ...prev, secondReminder: parseInt(e.target.value) || 0 }))}
+                          min={1}
+                          value={localSystemSettings.secondReminder}
+                          onChange={(e) => setLocalSystemSettings(prev => ({ ...prev, secondReminder: parseInt(e.target.value) || 2 }))}
                           className="w-24"
-                          dir="ltr"
-                          min={0}
                         />
-                        <span className="text-muted-foreground text-sm">ساعات قبل الموعد</span>
+                        <span className="text-muted-foreground">ساعات قبل الموعد</span>
                       </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between py-3 border-b border-border">
-                  <Label htmlFor="email-enabled" className="font-normal">تفعيل تذكير البريد الإلكتروني</Label>
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+                  <div>
+                    <Label>تفعيل تذكير البريد الإلكتروني</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      إرسال رسائل بريد إلكتروني تذكيرية للمرضى
+                    </p>
+                  </div>
                   <Switch
-                    id="email-enabled"
-                    checked={systemSettings.emailEnabled}
-                    onCheckedChange={(checked) => setSystemSettings(prev => ({ ...prev, emailEnabled: checked }))}
+                    checked={localSystemSettings.emailEnabled}
+                    onCheckedChange={(checked) => setLocalSystemSettings(prev => ({ ...prev, emailEnabled: checked }))}
                   />
                 </div>
               </div>
@@ -573,12 +718,11 @@ export default function Settings() {
       </Tabs>
 
       {/* Save Button */}
-      <div className="sticky bottom-0 bg-background/80 backdrop-blur-sm py-4 border-t border-border -mx-6 px-6">
-        <Button
-          onClick={handleSave}
+      <div className="sticky bottom-0 bg-background/95 backdrop-blur py-4 border-t border-border -mx-6 px-6">
+        <Button 
+          onClick={handleSave} 
+          className="w-full md:w-auto gap-2"
           disabled={isSaving}
-          className="w-full max-w-md mx-auto flex gap-2"
-          size="lg"
         >
           {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
           حفظ التغييرات

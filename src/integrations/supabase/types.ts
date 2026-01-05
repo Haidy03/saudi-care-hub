@@ -14,7 +14,380 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      appointments: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          appointment_type: string
+          clinic_id: string
+          created_at: string
+          doctor_id: string
+          id: string
+          notes: string | null
+          patient_id: string
+          reason: string
+          send_reminder: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          appointment_type: string
+          clinic_id: string
+          created_at?: string
+          doctor_id: string
+          id?: string
+          notes?: string | null
+          patient_id: string
+          reason: string
+          send_reminder?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          appointment_type?: string
+          clinic_id?: string
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          notes?: string | null
+          patient_id?: string
+          reason?: string
+          send_reminder?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      center_settings: {
+        Row: {
+          address: string | null
+          alt_phone: string | null
+          city: string | null
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          name_ar: string
+          name_en: string | null
+          phone: string | null
+          postal_code: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          alt_phone?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name_ar?: string
+          name_en?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          alt_phone?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name_ar?: string
+          name_en?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      center_working_hours: {
+        Row: {
+          close_time: string
+          day_of_week: string
+          id: string
+          is_open: boolean
+          open_time: string
+        }
+        Insert: {
+          close_time?: string
+          day_of_week: string
+          id?: string
+          is_open?: boolean
+          open_time?: string
+        }
+        Update: {
+          close_time?: string
+          day_of_week?: string
+          id?: string
+          is_open?: boolean
+          open_time?: string
+        }
+        Relationships: []
+      }
+      clinics: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          name_en: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          name_en?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          name_en?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      doctor_schedules: {
+        Row: {
+          created_at: string
+          day_of_week: string
+          doctor_id: string
+          end_time: string
+          id: string
+          is_working: boolean
+          start_time: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: string
+          doctor_id: string
+          end_time?: string
+          id?: string
+          is_working?: boolean
+          start_time?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: string
+          doctor_id?: string
+          end_time?: string
+          id?: string
+          is_working?: boolean
+          start_time?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_schedules_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctors: {
+        Row: {
+          bio: string | null
+          clinic_id: string | null
+          created_at: string
+          email: string | null
+          experience_years: number
+          icon_color: string | null
+          id: string
+          name: string
+          phone: string
+          qualifications: string | null
+          specialty: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          bio?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          email?: string | null
+          experience_years?: number
+          icon_color?: string | null
+          id?: string
+          name: string
+          phone: string
+          qualifications?: string | null
+          specialty: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          bio?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          email?: string | null
+          experience_years?: number
+          icon_color?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          qualifications?: string | null
+          specialty?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctors_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          address: string | null
+          allergies: string | null
+          alt_phone: string | null
+          birth_date: string
+          blood_type: string | null
+          chronic_diseases: string | null
+          created_at: string
+          email: string | null
+          emergency_contact_name: string
+          emergency_contact_phone: string
+          emergency_contact_relation: string
+          full_name: string
+          gender: string
+          id: string
+          national_id: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          allergies?: string | null
+          alt_phone?: string | null
+          birth_date: string
+          blood_type?: string | null
+          chronic_diseases?: string | null
+          created_at?: string
+          email?: string | null
+          emergency_contact_name: string
+          emergency_contact_phone: string
+          emergency_contact_relation: string
+          full_name: string
+          gender: string
+          id?: string
+          national_id: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          allergies?: string | null
+          alt_phone?: string | null
+          birth_date?: string
+          blood_type?: string | null
+          chronic_diseases?: string | null
+          created_at?: string
+          email?: string | null
+          emergency_contact_name?: string
+          emergency_contact_phone?: string
+          emergency_contact_relation?: string
+          full_name?: string
+          gender?: string
+          id?: string
+          national_id?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          created_at: string
+          date_format: string
+          default_appointment_duration: number
+          email_enabled: boolean
+          first_reminder_hours: number
+          id: string
+          language: string
+          min_notice_hours: number
+          same_day_booking: boolean
+          second_reminder_hours: number
+          sms_enabled: boolean
+          time_format: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          date_format?: string
+          default_appointment_duration?: number
+          email_enabled?: boolean
+          first_reminder_hours?: number
+          id?: string
+          language?: string
+          min_notice_hours?: number
+          same_day_booking?: boolean
+          second_reminder_hours?: number
+          sms_enabled?: boolean
+          time_format?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          date_format?: string
+          default_appointment_duration?: number
+          email_enabled?: boolean
+          first_reminder_hours?: number
+          id?: string
+          language?: string
+          min_notice_hours?: number
+          same_day_booking?: boolean
+          second_reminder_hours?: number
+          sms_enabled?: boolean
+          time_format?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
