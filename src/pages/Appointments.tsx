@@ -12,6 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import BookAppointmentModal from '@/components/appointments/BookAppointmentModal';
+import AddPatientModal from '@/components/patients/AddPatientModal';
 
 type ViewMode = 'table' | 'calendar';
 type AppointmentStatus = 'upcoming' | 'completed' | 'cancelled';
@@ -26,7 +28,7 @@ interface Appointment {
   status: AppointmentStatus;
 }
 
-const appointmentsData: Appointment[] = [
+const initialAppointments: Appointment[] = [
   { id: '1', patientName: 'أحمد عبدالله', clinic: 'عيادة الأسنان', doctor: 'د. سارة الأحمد', date: '2025-01-05', time: '10:00 ص', status: 'upcoming' },
   { id: '2', patientName: 'نورة سعد', clinic: 'عيادة العظام', doctor: 'د. محمد العمري', date: '2025-01-05', time: '11:30 ص', status: 'upcoming' },
   { id: '3', patientName: 'خالد فهد', clinic: 'عيادة الجلدية', doctor: 'د. ليلى الشهري', date: '2025-01-05', time: '02:00 م', status: 'upcoming' },
@@ -45,11 +47,30 @@ const statusConfig = {
 
 export default function Appointments() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
+  const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
 
-  const handleNewAppointment = () => {
-    toast.info('سيتم فتح نموذج حجز موعد');
+  const handleBookAppointment = (data: any) => {
+    const newAppointment: Appointment = {
+      id: String(appointments.length + 1),
+      patientName: data.patientName,
+      clinic: data.clinic,
+      doctor: data.doctor,
+      date: data.date,
+      time: data.time,
+      status: 'upcoming',
+    };
+    setAppointments((prev) => [newAppointment, ...prev]);
+    setIsBookingModalOpen(false);
+    toast.success('تم حجز الموعد بنجاح');
+  };
+
+  const handleAddPatient = (data: any) => {
+    toast.success('تم إضافة المريض بنجاح');
+    setIsPatientModalOpen(false);
   };
 
   const handleEdit = (appointment: Appointment) => {
@@ -63,6 +84,11 @@ export default function Appointments() {
 
   const handleConfirmDelete = () => {
     if (selectedAppointment) {
+      setAppointments((prev) =>
+        prev.map((apt) =>
+          apt.id === selectedAppointment.id ? { ...apt, status: 'cancelled' as AppointmentStatus } : apt
+        )
+      );
       toast.success(`تم إلغاء موعد: ${selectedAppointment.patientName}`);
     }
     setDeleteDialogOpen(false);
@@ -109,7 +135,10 @@ export default function Appointments() {
         </div>
 
         {/* New Appointment Button */}
-        <Button onClick={handleNewAppointment} className="gap-2 bg-primary hover:bg-primary/90">
+        <Button
+          onClick={() => setIsBookingModalOpen(true)}
+          className="gap-2 bg-primary hover:bg-primary/90"
+        >
           <Plus className="w-4 h-4" />
           حجز موعد جديد
         </Button>
@@ -132,7 +161,7 @@ export default function Appointments() {
                 </tr>
               </thead>
               <tbody>
-                {appointmentsData.map((appointment) => {
+                {appointments.map((appointment) => {
                   const status = statusConfig[appointment.status];
                   return (
                     <tr
@@ -199,7 +228,7 @@ export default function Appointments() {
           {/* Table Footer */}
           <div className="px-6 py-4 border-t border-border bg-muted/30 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              إجمالي المواعيد: {appointmentsData.length}
+              إجمالي المواعيد: {appointments.length}
             </p>
           </div>
         </div>
@@ -240,6 +269,21 @@ export default function Appointments() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Book Appointment Modal */}
+      <BookAppointmentModal
+        isOpen={isBookingModalOpen}
+        onClose={() => setIsBookingModalOpen(false)}
+        onSubmit={handleBookAppointment}
+        onAddNewPatient={() => setIsPatientModalOpen(true)}
+      />
+
+      {/* Add Patient Modal */}
+      <AddPatientModal
+        isOpen={isPatientModalOpen}
+        onClose={() => setIsPatientModalOpen(false)}
+        onSubmit={handleAddPatient}
+      />
     </div>
   );
 }
