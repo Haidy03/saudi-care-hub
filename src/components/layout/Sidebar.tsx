@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Building2, Users, Calendar, Stethoscope } from 'lucide-react';
+import { Building2, Users, Calendar, Stethoscope, Settings } from 'lucide-react';
 import { NAV_ITEMS } from '@/lib/constants';
 import { cn } from '@/lib/utils';
 
@@ -8,6 +8,7 @@ const iconMap: Record<string, React.ElementType> = {
   Users,
   Calendar,
   Stethoscope,
+  Settings,
 };
 
 export function Sidebar() {
