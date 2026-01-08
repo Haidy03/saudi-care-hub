@@ -8,4 +8,4 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'الإعدادات', path: '/settings', icon: 'Settings' },
 ];
 
-export const APP_NAME = 'مركز الرعاية الصحية';
+export const APP_NAME = 'مركز الرعاية الصحي';
