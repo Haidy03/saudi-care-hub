@@ -19,7 +19,7 @@ export function Sidebar() {
       <nav className="p-4 space-y-6">
         {NAV_SECTIONS.map((section) => (
           <div key={section.title} className="space-y-2">
-            <h3 className="px-4 text-xs font-semibold uppercase tracking-wider text-white/50">
+            <h3 className="px-4 text-xs font-semibold uppercase tracking-wider text-[#f38729]">
               {section.title}
             </h3>
             <div className="space-y-1">
