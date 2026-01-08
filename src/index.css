@@ -16,17 +16,17 @@
     --popover: 240 5% 90%;
     --popover-foreground: 240 5% 10%;
 
-    --primary: 333 71% 50%;
-    --primary-foreground: 327 73% 97%;
+    --primary: 27 90% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 5% 33%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 0 0% 100%;
 
     --muted: 240 4% 83%;
     --muted-foreground: 240 5% 10%;
 
-    --accent: 355 100% 97%;
-    --accent-foreground: 349 89% 60%;
+    --accent: 27 90% 95%;
+    --accent-foreground: 27 90% 45%;
 
     --purple: 258 90% 66%;
     --purple-foreground: 0 0% 100%;
@@ -34,7 +34,7 @@
     --pink: 330 81% 60%;
     --pink-foreground: 0 0% 100%;
 
-    --success: 160 84% 39%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -45,19 +45,19 @@
 
     --border: 240 4% 83%;
     --input: 240 4% 83%;
-    --ring: 333 71% 50%;
+    --ring: 27 90% 55%;
 
     --radius: 1.5rem;
     --radius-sm: 0.5rem;
 
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 240 5% 10%;
-    --sidebar-primary: 333 71% 50%;
-    --sidebar-primary-foreground: 327 73% 97%;
-    --sidebar-accent: 240 5% 33%;
-    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-primary: 27 90% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 142 71% 45%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 240 4% 83%;
-    --sidebar-ring: 333 71% 50%;
+    --sidebar-ring: 27 90% 55%;
 
     --header-height: 80px;
     --sidebar-width: 240px;
@@ -92,19 +92,19 @@
     --popover: 240 5% 26%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 328 85% 70%;
-    --primary-foreground: 336 83% 17%;
+    --primary: 27 90% 55%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 3% 46%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 142 71% 45%;
+    --secondary-foreground: 0 0% 100%;
 
     --muted: 240 3% 46%;
     --muted-foreground: 0 0% 98%;
 
-    --accent: 343 87% 15%;
-    --accent-foreground: 351 94% 71%;
+    --accent: 27 30% 20%;
+    --accent-foreground: 27 90% 65%;
 
-    --success: 160 84% 39%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
@@ -115,16 +115,16 @@
 
     --border: 240 5% 33%;
     --input: 240 5% 33%;
-    --ring: 328 85% 70%;
+    --ring: 27 90% 55%;
 
     --sidebar-background: 220 14% 12%;
     --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 328 85% 70%;
-    --sidebar-primary-foreground: 336 83% 17%;
-    --sidebar-accent: 351 94% 71%;
-    --sidebar-accent-foreground: 343 87% 15%;
+    --sidebar-primary: 27 90% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 142 71% 45%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 240 5% 33%;
-    --sidebar-ring: 328 85% 70%;
+    --sidebar-ring: 27 90% 55%;
     --chart-1: 327 87% 81%;
     --chart-2: 352 95% 81%;
     --chart-3: 328 85% 70%;
