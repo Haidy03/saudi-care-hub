@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 
 interface FormData {
   fullName: string;
@@ -28,6 +28,16 @@ interface FormData {
   emergencyContactName: string;
   emergencyContactPhone: string;
   emergencyContactRelation: string;
+  // New fields from the wizard
+  maritalStatus: string;
+  occupation: string;
+  nationality: string;
+  insuranceProvider: string;
+  insuranceNumber: string;
+  historicalMedicalConditions: string;
+  currentMedications: string;
+  isSmoker: boolean;
+  hasInsurance: boolean;
 }
 
 interface FormErrors {
@@ -55,55 +65,73 @@ const initialFormData: FormData = {
   emergencyContactName: '',
   emergencyContactPhone: '',
   emergencyContactRelation: '',
+  maritalStatus: '',
+  occupation: '',
+  nationality: 'سعودي',
+  insuranceProvider: '',
+  insuranceNumber: '',
+  historicalMedicalConditions: '',
+  currentMedications: '',
+  isSmoker: false,
+  hasInsurance: false,
 };
 
 export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatientModalProps) {
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
 
-  const validateField = (name: string, value: string): string => {
+  const steps = [
+    { number: 1, title: 'المعلومات الأساسية' },
+    { number: 2, title: 'معلومات الاتصال' },
+    { number: 3, title: 'المعلومات الطبية' },
+  ];
+
+  const validateField = (name: string, value: string | boolean): string => {
+    const stringValue = typeof value === 'boolean' ? '' : value;
+
     switch (name) {
       case 'fullName':
-        if (!value.trim()) return 'الاسم الكامل مطلوب';
-        if (value.trim().length < 3) return 'الاسم يجب أن يكون 3 أحرف على الأقل';
+        if (!stringValue.trim()) return 'الاسم الكامل مطلوب';
+        if (stringValue.trim().length < 3) return 'الاسم يجب أن يكون 3 أحرف على الأقل';
         return '';
       case 'gender':
-        if (!value) return 'النوع مطلوب';
+        if (!stringValue) return 'النوع مطلوب';
         return '';
       case 'birthDate':
-        if (!value) return 'تاريخ الميلاد مطلوب';
+        if (!stringValue) return 'تاريخ الميلاد مطلوب';
         return '';
       case 'nationalId':
-        if (!value.trim()) return 'رقم الهوية مطلوب';
-        if (!/^\d{10}$/.test(value)) return 'رقم الهوية يجب أن يكون 10 أرقام';
+        if (!stringValue.trim()) return 'رقم الهوية مطلوب';
+        if (!/^\d{10}$/.test(stringValue)) return 'رقم الهوية يجب أن يكون 10 أرقام';
         return '';
       case 'phone':
-        if (!value.trim()) return 'رقم الهاتف مطلوب';
-        if (!/^05\d{8}$/.test(value)) return 'رقم الهاتف غير صحيح (05XXXXXXXX)';
+        if (!stringValue.trim()) return 'رقم الهاتف مطلوب';
+        if (!/^05\d{8}$/.test(stringValue)) return 'رقم الهاتف غير صحيح (05XXXXXXXX)';
         return '';
       case 'altPhone':
-        if (value && !/^05\d{8}$/.test(value)) return 'رقم الهاتف غير صحيح';
+        if (stringValue && !/^05\d{8}$/.test(stringValue)) return 'رقم الهاتف غير صحيح';
         return '';
       case 'email':
-        if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'البريد الإلكتروني غير صحيح';
+        if (stringValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stringValue)) return 'البريد الإلكتروني غير صحيح';
         return '';
       case 'emergencyContactName':
-        if (!value.trim()) return 'اسم جهة الاتصال مطلوب';
+        if (!stringValue.trim()) return 'اسم جهة الاتصال مطلوب';
         return '';
       case 'emergencyContactPhone':
-        if (!value.trim()) return 'رقم هاتف الطوارئ مطلوب';
-        if (!/^05\d{8}$/.test(value)) return 'رقم الهاتف غير صحيح';
+        if (!stringValue.trim()) return 'رقم هاتف الطوارئ مطلوب';
+        if (!/^05\d{8}$/.test(stringValue)) return 'رقم الهاتف غير صحيح';
         return '';
       case 'emergencyContactRelation':
-        if (!value) return 'صلة القرابة مطلوبة';
+        if (!stringValue) return 'صلة القرابة مطلوبة';
         return '';
       default:
         return '';
     }
   };
 
-  const handleChange = (name: string, value: string) => {
+  const handleChange = (name: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (touched[name]) {
       setErrors((prev) => ({ ...prev, [name]: validateField(name, value) }));
@@ -115,39 +143,49 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
     setErrors((prev) => ({ ...prev, [name]: validateField(name, formData[name as keyof FormData]) }));
   };
 
-  const validateForm = (): boolean => {
+  const validateStep = (step: number): boolean => {
     const newErrors: FormErrors = {};
-    const requiredFields = [
-      'fullName', 'gender', 'birthDate', 'nationalId', 'phone',
-      'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation'
-    ];
+    let fieldsToValidate: string[] = [];
 
-    requiredFields.forEach((field) => {
+    switch (step) {
+      case 1:
+        fieldsToValidate = ['fullName', 'gender', 'birthDate', 'nationalId'];
+        break;
+      case 2:
+        fieldsToValidate = ['phone', 'emergencyContactName', 'emergencyContactPhone', 'emergencyContactRelation'];
+        // Validate optional fields if they have values
+        if (formData.altPhone) fieldsToValidate.push('altPhone');
+        if (formData.email) fieldsToValidate.push('email');
+        break;
+      case 3:
+        // Medical info is optional, no required validations
+        break;
+    }
+
+    fieldsToValidate.forEach((field) => {
       const error = validateField(field, formData[field as keyof FormData]);
       if (error) newErrors[field] = error;
     });
 
-    // Validate optional fields if they have values
-    if (formData.altPhone) {
-      const error = validateField('altPhone', formData.altPhone);
-      if (error) newErrors.altPhone = error;
-    }
-    if (formData.email) {
-      const error = validateField('email', formData.email);
-      if (error) newErrors.email = error;
-    }
-
     setErrors(newErrors);
-    setTouched(Object.fromEntries(requiredFields.map(f => [f, true])));
+    setTouched(Object.fromEntries(fieldsToValidate.map(f => [f, true])));
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep((prev) => Math.min(prev + 1, 3));
+    }
+  };
+
+  const handleBack = () => {
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
   const handleSubmit = () => {
-    if (validateForm()) {
+    if (validateStep(currentStep)) {
       onSubmit(formData);
-      setFormData(initialFormData);
-      setErrors({});
-      setTouched({});
+      handleClose();
     }
   };
 
@@ -155,22 +193,22 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
     setFormData(initialFormData);
     setErrors({});
     setTouched({});
+    setCurrentStep(1);
     onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
-      <div className="bg-card w-full max-w-[600px] max-h-[90vh] rounded-xl shadow-xl overflow-hidden flex flex-col">
+      <div className="bg-card w-full max-w-[900px] max-h-[90vh] rounded-xl shadow-xl overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-foreground">إضافة مريض جديد</h2>
-            <p className="text-sm text-muted-foreground">أدخل بيانات المريض</p>
+            <h2 className="text-xl font-bold text-foreground">معلومات المريض</h2>
           </div>
           <button
             onClick={handleClose}
@@ -180,53 +218,88 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
           </button>
         </div>
 
-        {/* Form */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Section 1: Personal Information */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-3">المعلومات الشخصية</h3>
-            <div className="space-y-4">
+        {/* Step Indicator */}
+        <div className="px-6 py-4 border-b border-border">
+          <div className="flex items-center justify-center gap-2">
+            {steps.map((step, index) => (
+              <div key={step.number} className="flex items-center">
+                <div className="flex flex-col items-center gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${
+                      currentStep === step.number
+                        ? 'bg-primary text-primary-foreground'
+                        : currentStep > step.number
+                        ? 'bg-green-500 text-white'
+                        : 'bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {step.number}
+                  </div>
+                  <span
+                    className={`text-xs font-medium whitespace-nowrap ${
+                      currentStep === step.number
+                        ? 'text-foreground'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
+                    {step.title}
+                  </span>
+                </div>
+                {index < steps.length - 1 && (
+                  <div
+                    className={`h-0.5 w-16 mx-4 ${
+                      currentStep > step.number ? 'bg-green-500' : 'bg-muted'
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Form Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {/* Step 1: Basic Information */}
+          {currentStep === 1 && (
+            <div className="space-y-5 max-w-2xl mx-auto">
               {/* Full Name */}
               <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                  الاسم الكامل <span className="text-destructive">*</span>
+                <Label className="text-sm font-medium text-foreground mb-2 block">
+                  الاسم <span className="text-destructive">*</span>
                 </Label>
                 <Input
                   value={formData.fullName}
                   onChange={(e) => handleChange('fullName', e.target.value)}
                   onBlur={() => handleBlur('fullName')}
-                  placeholder="أدخل الاسم الكامل"
-                  className={`${errors.fullName ? 'border-destructive focus:ring-destructive/20' : ''}`}
+                  placeholder="الاسم الكامل"
+                  className={`h-11 ${errors.fullName ? 'border-destructive' : ''}`}
                 />
                 {errors.fullName && <p className="text-xs text-destructive mt-1">{errors.fullName}</p>}
               </div>
 
-              {/* Gender */}
-              <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                  النوع <span className="text-destructive">*</span>
-                </Label>
-                <RadioGroup
-                  value={formData.gender}
-                  onValueChange={(value) => handleChange('gender', value)}
-                  className="flex gap-6"
-                >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="male" id="male" />
-                    <Label htmlFor="male" className="cursor-pointer">ذكر</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value="female" id="female" />
-                    <Label htmlFor="female" className="cursor-pointer">أنثى</Label>
-                  </div>
-                </RadioGroup>
-                {errors.gender && <p className="text-xs text-destructive mt-1">{errors.gender}</p>}
-              </div>
-
-              {/* Birth Date & National ID */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Gender and Birth Date */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    النوع <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => handleChange('gender', value)}
+                  >
+                    <SelectTrigger className={`h-11 ${errors.gender ? 'border-destructive' : ''}`}>
+                      <SelectValue placeholder="اختر النوع" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">ذكر</SelectItem>
+                      <SelectItem value="female">أنثى</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.gender && <p className="text-xs text-destructive mt-1">{errors.gender}</p>}
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
                     تاريخ الميلاد <span className="text-destructive">*</span>
                   </Label>
                   <Input
@@ -234,13 +307,17 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
                     value={formData.birthDate}
                     onChange={(e) => handleChange('birthDate', e.target.value)}
                     onBlur={() => handleBlur('birthDate')}
-                    className={`${errors.birthDate ? 'border-destructive focus:ring-destructive/20' : ''}`}
+                    className={`h-11 ${errors.birthDate ? 'border-destructive' : ''}`}
                   />
                   {errors.birthDate && <p className="text-xs text-destructive mt-1">{errors.birthDate}</p>}
                 </div>
+              </div>
+
+              {/* National ID and Nationality */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                    رقم الهوية الوطنية <span className="text-destructive">*</span>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    رقم الهوية <span className="text-destructive">*</span>
                   </Label>
                   <Input
                     value={formData.nationalId}
@@ -248,70 +325,62 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
                     onBlur={() => handleBlur('nationalId')}
                     placeholder="10 أرقام"
                     dir="ltr"
-                    className={`text-right ${errors.nationalId ? 'border-destructive focus:ring-destructive/20' : ''}`}
+                    className={`h-11 text-right ${errors.nationalId ? 'border-destructive' : ''}`}
                   />
                   {errors.nationalId && <p className="text-xs text-destructive mt-1">{errors.nationalId}</p>}
                 </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Section 2: Contact Information */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-3">معلومات الاتصال</h3>
-            <div className="space-y-4">
-              {/* Phone Numbers */}
-              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                    رقم الهاتف <span className="text-destructive">*</span>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    الجنسية
                   </Label>
                   <Input
-                    value={formData.phone}
-                    onChange={(e) => handleChange('phone', e.target.value)}
-                    onBlur={() => handleBlur('phone')}
-                    placeholder="05XXXXXXXX"
-                    dir="ltr"
-                    className={`text-right ${errors.phone ? 'border-destructive focus:ring-destructive/20' : ''}`}
+                    value={formData.nationality}
+                    onChange={(e) => handleChange('nationality', e.target.value)}
+                    placeholder="الجنسية"
+                    className="h-11"
                   />
-                  {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                    رقم بديل
-                  </Label>
-                  <Input
-                    value={formData.altPhone}
-                    onChange={(e) => handleChange('altPhone', e.target.value)}
-                    onBlur={() => handleBlur('altPhone')}
-                    placeholder="05XXXXXXXX"
-                    dir="ltr"
-                    className={`text-right ${errors.altPhone ? 'border-destructive focus:ring-destructive/20' : ''}`}
-                  />
-                  {errors.altPhone && <p className="text-xs text-destructive mt-1">{errors.altPhone}</p>}
                 </div>
               </div>
 
-              {/* Email */}
-              <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                  البريد الإلكتروني
-                </Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange('email', e.target.value)}
-                  onBlur={() => handleBlur('email')}
-                  placeholder="example@email.com"
-                  dir="ltr"
-                  className={`text-right ${errors.email ? 'border-destructive focus:ring-destructive/20' : ''}`}
-                />
-                {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
+              {/* Marital Status and Occupation */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    الحالة الاجتماعية
+                  </Label>
+                  <Select
+                    value={formData.maritalStatus}
+                    onValueChange={(value) => handleChange('maritalStatus', value)}
+                  >
+                    <SelectTrigger className="h-11">
+                      <SelectValue placeholder="اختر الحالة" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="single">أعزب/عزباء</SelectItem>
+                      <SelectItem value="married">متزوج/متزوجة</SelectItem>
+                      <SelectItem value="divorced">مطلق/مطلقة</SelectItem>
+                      <SelectItem value="widowed">أرمل/أرملة</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    الوظيفة
+                  </Label>
+                  <Input
+                    value={formData.occupation}
+                    onChange={(e) => handleChange('occupation', e.target.value)}
+                    placeholder="الوظيفة الحالية"
+                    className="h-11"
+                  />
+                </div>
               </div>
 
               {/* Address */}
               <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                <Label className="text-sm font-medium text-foreground mb-2 block">
                   العنوان
                 </Label>
                 <Textarea
@@ -322,25 +391,134 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
                 />
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Section 3: Medical Information */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-3">المعلومات الطبية</h3>
-            <div className="space-y-4">
-              {/* Blood Type */}
+          {/* Step 2: Contact Information */}
+          {currentStep === 2 && (
+            <div className="space-y-5 max-w-2xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    رقم الاتصال <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) => handleChange('phone', e.target.value)}
+                    onBlur={() => handleBlur('phone')}
+                    placeholder="05XXXXXXXX"
+                    dir="ltr"
+                    className={`h-11 text-right ${errors.phone ? 'border-destructive' : ''}`}
+                  />
+                  {errors.phone && <p className="text-xs text-destructive mt-1">{errors.phone}</p>}
+                </div>
+
+                <div>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">
+                    كود
+                  </Label>
+                  <Input
+                    value="966"
+                    disabled
+                    dir="ltr"
+                    className="h-11 text-right bg-muted"
+                  />
+                </div>
+              </div>
+
               <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                <Label className="text-sm font-medium text-foreground mb-2 block">
+                  البريد الإلكتروني
+                </Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
+                  onBlur={() => handleBlur('email')}
+                  placeholder="example@email.com"
+                  dir="ltr"
+                  className={`h-11 text-right ${errors.email ? 'border-destructive' : ''}`}
+                />
+                {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
+              </div>
+
+              <div className="border-t border-border pt-5 mt-6">
+                <h3 className="font-semibold text-foreground mb-4">جهة الاتصال في حالة الطوارئ</h3>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
+                      اسم جهة الاتصال الطارئة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      value={formData.emergencyContactName}
+                      onChange={(e) => handleChange('emergencyContactName', e.target.value)}
+                      onBlur={() => handleBlur('emergencyContactName')}
+                      placeholder="الاسم الكامل"
+                      className={`h-11 ${errors.emergencyContactName ? 'border-destructive' : ''}`}
+                    />
+                    {errors.emergencyContactName && <p className="text-xs text-destructive mt-1">{errors.emergencyContactName}</p>}
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
+                      رقم جهة الاتصال الطارئة <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      value={formData.emergencyContactPhone}
+                      onChange={(e) => handleChange('emergencyContactPhone', e.target.value)}
+                      onBlur={() => handleBlur('emergencyContactPhone')}
+                      placeholder="05XXXXXXXX"
+                      dir="ltr"
+                      className={`h-11 text-right ${errors.emergencyContactPhone ? 'border-destructive' : ''}`}
+                    />
+                    {errors.emergencyContactPhone && <p className="text-xs text-destructive mt-1">{errors.emergencyContactPhone}</p>}
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
+                      صلة القرابة <span className="text-destructive">*</span>
+                    </Label>
+                    <Select
+                      value={formData.emergencyContactRelation}
+                      onValueChange={(value) => handleChange('emergencyContactRelation', value)}
+                    >
+                      <SelectTrigger className={`h-11 ${errors.emergencyContactRelation ? 'border-destructive' : ''}`}>
+                        <SelectValue placeholder="اختر صلة القرابة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="father">والد</SelectItem>
+                        <SelectItem value="mother">والدة</SelectItem>
+                        <SelectItem value="spouse">زوج/زوجة</SelectItem>
+                        <SelectItem value="brother">أخ</SelectItem>
+                        <SelectItem value="sister">أخت</SelectItem>
+                        <SelectItem value="son">ابن</SelectItem>
+                        <SelectItem value="daughter">ابنة</SelectItem>
+                        <SelectItem value="friend">صديق</SelectItem>
+                        <SelectItem value="other">أخرى</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.emergencyContactRelation && <p className="text-xs text-destructive mt-1">{errors.emergencyContactRelation}</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Medical Information */}
+          {currentStep === 3 && (
+            <div className="space-y-5 max-w-2xl mx-auto">
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-2 block">
                   فصيلة الدم
                 </Label>
                 <Select
                   value={formData.bloodType}
                   onValueChange={(value) => handleChange('bloodType', value)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-11">
                     <SelectValue placeholder="اختر فصيلة الدم" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover z-50">
+                  <SelectContent>
                     <SelectItem value="A+">A+</SelectItem>
                     <SelectItem value="A-">A-</SelectItem>
                     <SelectItem value="B+">B+</SelectItem>
@@ -354,9 +532,32 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
                 </Select>
               </div>
 
-              {/* Chronic Diseases */}
               <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                <Label className="text-sm font-medium text-foreground mb-2 block">
+                  التاريخ الطبي
+                </Label>
+                <Textarea
+                  value={formData.historicalMedicalConditions}
+                  onChange={(e) => handleChange('historicalMedicalConditions', e.target.value)}
+                  placeholder="السجل الطبي السابق..."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-2 block">
+                  الأدوية الحالية
+                </Label>
+                <Textarea
+                  value={formData.currentMedications}
+                  onChange={(e) => handleChange('currentMedications', e.target.value)}
+                  placeholder="الأدوية التي يتناولها المريض حالياً..."
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-2 block">
                   الأمراض المزمنة
                 </Label>
                 <Textarea
@@ -367,98 +568,84 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
                 />
               </div>
 
-              {/* Allergies */}
               <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
+                <Label className="text-sm font-medium text-foreground mb-2 block">
                   الحساسية
                 </Label>
                 <Textarea
                   value={formData.allergies}
                   onChange={(e) => handleChange('allergies', e.target.value)}
-                  placeholder="أدخل أي حساسية معروفة..."
+                  placeholder="أي حساسية معروفة..."
                   rows={2}
                 />
               </div>
-            </div>
-          </div>
 
-          {/* Section 4: Emergency Contact */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-3">جهة الاتصال في حالة الطوارئ</h3>
-            <div className="space-y-4">
-              {/* Contact Name */}
-              <div>
-                <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                  اسم جهة الاتصال <span className="text-destructive">*</span>
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                <Label className="text-sm font-medium text-foreground">
+                  مدخن
                 </Label>
-                <Input
-                  value={formData.emergencyContactName}
-                  onChange={(e) => handleChange('emergencyContactName', e.target.value)}
-                  onBlur={() => handleBlur('emergencyContactName')}
-                  placeholder="اسم الشخص للتواصل"
-                  className={`${errors.emergencyContactName ? 'border-destructive focus:ring-destructive/20' : ''}`}
+                <Switch
+                  checked={formData.isSmoker}
+                  onCheckedChange={(checked) => handleChange('isSmoker', checked)}
                 />
-                {errors.emergencyContactName && <p className="text-xs text-destructive mt-1">{errors.emergencyContactName}</p>}
               </div>
 
-              {/* Contact Phone & Relation */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                    رقم الهاتف <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    value={formData.emergencyContactPhone}
-                    onChange={(e) => handleChange('emergencyContactPhone', e.target.value)}
-                    onBlur={() => handleBlur('emergencyContactPhone')}
-                    placeholder="05XXXXXXXX"
-                    dir="ltr"
-                    className={`text-right ${errors.emergencyContactPhone ? 'border-destructive focus:ring-destructive/20' : ''}`}
-                  />
-                  {errors.emergencyContactPhone && <p className="text-xs text-destructive mt-1">{errors.emergencyContactPhone}</p>}
-                </div>
-                <div>
-                  <Label className="text-sm font-medium text-foreground mb-1.5 block">
-                    صلة القرابة <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={formData.emergencyContactRelation}
-                    onValueChange={(value) => handleChange('emergencyContactRelation', value)}
-                  >
-                    <SelectTrigger className={`w-full ${errors.emergencyContactRelation ? 'border-destructive focus:ring-destructive/20' : ''}`}>
-                      <SelectValue placeholder="اختر صلة القرابة" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-popover z-50">
-                      <SelectItem value="father">والد</SelectItem>
-                      <SelectItem value="mother">والدة</SelectItem>
-                      <SelectItem value="spouse">زوج/زوجة</SelectItem>
-                      <SelectItem value="brother">أخ</SelectItem>
-                      <SelectItem value="sister">أخت</SelectItem>
-                      <SelectItem value="friend">صديق</SelectItem>
-                      <SelectItem value="other">أخرى</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.emergencyContactRelation && <p className="text-xs text-destructive mt-1">{errors.emergencyContactRelation}</p>}
-                </div>
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                <Label className="text-sm font-medium text-foreground">
+                  لديه تأمين
+                </Label>
+                <Switch
+                  checked={formData.hasInsurance}
+                  onCheckedChange={(checked) => handleChange('hasInsurance', checked)}
+                />
               </div>
+
+              {formData.hasInsurance && (
+                <div className="space-y-4 p-4 border border-border rounded-lg">
+                  <div>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
+                      اسم جهة التأمين
+                    </Label>
+                    <Input
+                      value={formData.insuranceProvider}
+                      onChange={(e) => handleChange('insuranceProvider', e.target.value)}
+                      placeholder="اسم شركة التأمين"
+                      className="h-11"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
+                      رقم التأمين
+                    </Label>
+                    <Input
+                      value={formData.insuranceNumber}
+                      onChange={(e) => handleChange('insuranceNumber', e.target.value)}
+                      placeholder="رقم بوليصة التأمين"
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border flex items-center justify-end gap-3">
+        {/* Footer with Navigation */}
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
           <Button
             variant="outline"
-            onClick={handleClose}
+            onClick={currentStep === 1 ? handleClose : handleBack}
             className="px-6"
           >
-            إلغاء
+            {currentStep === 1 ? 'رجوع' : 'التالي'}
           </Button>
+
           <Button
-            onClick={handleSubmit}
-            className="px-6"
+            onClick={currentStep === 3 ? handleSubmit : handleNext}
+            className="px-6 bg-primary hover:bg-primary/90"
           >
-            حفظ
+            {currentStep === 3 ? 'حفظ' : 'التالي'}
           </Button>
         </div>
       </div>

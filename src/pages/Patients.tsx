@@ -133,6 +133,16 @@ export default function Patients() {
         emergency_contact_name: formData.emergencyContactName,
         emergency_contact_phone: formData.emergencyContactPhone,
         emergency_contact_relation: formData.emergencyContactRelation,
+        // New extended fields
+        marital_status: formData.maritalStatus || null,
+        occupation: formData.occupation || null,
+        nationality: formData.nationality || 'سعودي',
+        insurance_provider: formData.insuranceProvider || null,
+        insurance_number: formData.insuranceNumber || null,
+        historical_medical_conditions: formData.historicalMedicalConditions || null,
+        current_medications: formData.currentMedications || null,
+        is_smoker: formData.isSmoker || false,
+        has_insurance: formData.hasInsurance || false,
       });
       setIsModalOpen(false);
       toast.success('تم إضافة المريض بنجاح');
