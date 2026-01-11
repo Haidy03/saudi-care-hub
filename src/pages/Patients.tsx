@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AddPatientModal from '@/components/patients/AddPatientModal';
-import { usePatients, useCreatePatient, useDeletePatient, calculateAge } from '@/hooks/usePatients';
+import ViewPatientModal from '@/components/patients/ViewPatientModal';
+import { usePatients, useCreatePatient, useDeletePatient, calculateAge, type Patient } from '@/hooks/usePatients';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState<{ id: string; name: string } | null>(null);
+  const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
 
   // Filter states
   const [dateFrom, setDateFrom] = useState('');
@@ -155,8 +157,8 @@ export default function Patients() {
     }
   };
 
-  const handleView = (patient: any) => {
-    toast.info(`عرض بيانات: ${patient.full_name}`);
+  const handleView = (patient: Patient) => {
+    setViewingPatient(patient);
   };
 
   const handleEdit = (patient: any) => {
@@ -522,6 +524,13 @@ export default function Patients() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleAddPatient}
+      />
+
+      {/* View Patient Modal */}
+      <ViewPatientModal
+        isOpen={!!viewingPatient}
+        onClose={() => setViewingPatient(null)}
+        patient={viewingPatient}
       />
 
       {/* Delete Confirmation Dialog */}
