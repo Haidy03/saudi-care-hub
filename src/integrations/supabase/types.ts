@@ -300,6 +300,7 @@ export type Database = {
           insurance_provider: string | null
           is_smoker: boolean | null
           marital_status: string | null
+          name_en: string | null
           national_id: string
           nationality: string | null
           occupation: string | null
@@ -328,6 +329,7 @@ export type Database = {
           insurance_provider?: string | null
           is_smoker?: boolean | null
           marital_status?: string | null
+          name_en?: string | null
           national_id: string
           nationality?: string | null
           occupation?: string | null
@@ -356,6 +358,7 @@ export type Database = {
           insurance_provider?: string | null
           is_smoker?: boolean | null
           marital_status?: string | null
+          name_en?: string | null
           national_id?: string
           nationality?: string | null
           occupation?: string | null
