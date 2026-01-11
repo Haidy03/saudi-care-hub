@@ -61,6 +61,7 @@ export default function Patients() {
           patient.national_id.includes(query)
       );
     }
+    
 
     // Date range filter
     if (dateFrom) {
