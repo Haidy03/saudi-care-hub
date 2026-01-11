@@ -286,14 +286,23 @@ export type Database = {
           blood_type: string | null
           chronic_diseases: string | null
           created_at: string
+          current_medications: string | null
           email: string | null
           emergency_contact_name: string
           emergency_contact_phone: string
           emergency_contact_relation: string
           full_name: string
           gender: string
+          has_insurance: boolean | null
+          historical_medical_conditions: string | null
           id: string
+          insurance_number: string | null
+          insurance_provider: string | null
+          is_smoker: boolean | null
+          marital_status: string | null
           national_id: string
+          nationality: string | null
+          occupation: string | null
           phone: string
           updated_at: string
         }
@@ -305,14 +314,23 @@ export type Database = {
           blood_type?: string | null
           chronic_diseases?: string | null
           created_at?: string
+          current_medications?: string | null
           email?: string | null
           emergency_contact_name: string
           emergency_contact_phone: string
           emergency_contact_relation: string
           full_name: string
           gender: string
+          has_insurance?: boolean | null
+          historical_medical_conditions?: string | null
           id?: string
+          insurance_number?: string | null
+          insurance_provider?: string | null
+          is_smoker?: boolean | null
+          marital_status?: string | null
           national_id: string
+          nationality?: string | null
+          occupation?: string | null
           phone: string
           updated_at?: string
         }
@@ -324,14 +342,23 @@ export type Database = {
           blood_type?: string | null
           chronic_diseases?: string | null
           created_at?: string
+          current_medications?: string | null
           email?: string | null
           emergency_contact_name?: string
           emergency_contact_phone?: string
           emergency_contact_relation?: string
           full_name?: string
           gender?: string
+          has_insurance?: boolean | null
+          historical_medical_conditions?: string | null
           id?: string
+          insurance_number?: string | null
+          insurance_provider?: string | null
+          is_smoker?: boolean | null
+          marital_status?: string | null
           national_id?: string
+          nationality?: string | null
+          occupation?: string | null
           phone?: string
           updated_at?: string
         }
