@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import type { Patient } from '@/hooks/usePatients';
 
 interface FormData {
   fullName: string;
@@ -43,34 +44,6 @@ interface FormData {
 
 interface FormErrors {
   [key: string]: string;
-}
-
-interface Patient {
-  id: string;
-  full_name: string;
-  name_en: string | null;
-  gender: string;
-  birth_date: string;
-  national_id: string;
-  phone: string;
-  alt_phone: string | null;
-  email: string | null;
-  address: string | null;
-  blood_type: string | null;
-  chronic_diseases: string | null;
-  allergies: string | null;
-  emergency_contact_name: string;
-  emergency_contact_phone: string;
-  emergency_contact_relation: string;
-  marital_status: string | null;
-  occupation: string | null;
-  nationality: string | null;
-  insurance_provider: string | null;
-  insurance_number: string | null;
-  historical_medical_conditions: string | null;
-  current_medications: string | null;
-  is_smoker: boolean | null;
-  has_insurance: boolean | null;
 }
 
 interface AddPatientModalProps {
