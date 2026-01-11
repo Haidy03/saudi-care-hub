@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AddPatientModal from '@/components/patients/AddPatientModal';
 import ViewPatientModal from '@/components/patients/ViewPatientModal';
-import { usePatients, useCreatePatient, useDeletePatient, calculateAge, type Patient } from '@/hooks/usePatients';
+import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, calculateAge, type Patient } from '@/hooks/usePatients';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +34,7 @@ export default function Patients() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState<{ id: string; name: string } | null>(null);
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
+  const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
   // Filter states
   const [dateFrom, setDateFrom] = useState('');
@@ -44,6 +45,7 @@ export default function Patients() {
 
   const { data: patients = [], isLoading, error } = usePatients();
   const createPatient = useCreatePatient();
+  const updatePatient = useUpdatePatient();
   const deletePatient = useDeletePatient();
 
   const filteredPatients = useMemo(() => {
@@ -118,9 +120,9 @@ export default function Patients() {
     return patients.filter((patient) => new Date(patient.created_at) >= weekAgo).length;
   }, [patients]);
 
-  const handleAddPatient = async (formData: any) => {
+  const handleSavePatient = async (formData: any) => {
     try {
-      await createPatient.mutateAsync({
+      const patientData = {
         full_name: formData.fullName,
         gender: formData.gender,
         birth_date: formData.birthDate,
@@ -135,7 +137,6 @@ export default function Patients() {
         emergency_contact_name: formData.emergencyContactName,
         emergency_contact_phone: formData.emergencyContactPhone,
         emergency_contact_relation: formData.emergencyContactRelation,
-        // New extended fields
         marital_status: formData.maritalStatus || null,
         occupation: formData.occupation || null,
         nationality: formData.nationality || 'سعودي',
@@ -145,14 +146,22 @@ export default function Patients() {
         current_medications: formData.currentMedications || null,
         is_smoker: formData.isSmoker || false,
         has_insurance: formData.hasInsurance || false,
-      });
-      setIsModalOpen(false);
-      toast.success('تم إضافة المريض بنجاح');
+      };
+
+      if (editingPatient) {
+        await updatePatient.mutateAsync({ id: editingPatient.id, ...patientData });
+        setEditingPatient(null);
+        toast.success('تم تحديث بيانات المريض بنجاح');
+      } else {
+        await createPatient.mutateAsync(patientData);
+        setIsModalOpen(false);
+        toast.success('تم إضافة المريض بنجاح');
+      }
     } catch (err: any) {
       if (err.code === '23505') {
         toast.error('رقم الهوية مسجل مسبقاً');
       } else {
-        toast.error('حدث خطأ أثناء إضافة المريض');
+        toast.error(editingPatient ? 'حدث خطأ أثناء تحديث المريض' : 'حدث خطأ أثناء إضافة المريض');
       }
     }
   };
@@ -161,8 +170,8 @@ export default function Patients() {
     setViewingPatient(patient);
   };
 
-  const handleEdit = (patient: any) => {
-    toast.info(`تعديل بيانات: ${patient.full_name}`);
+  const handleEdit = (patient: Patient) => {
+    setEditingPatient(patient);
   };
 
   const handleConfirmDelete = async () => {
@@ -519,11 +528,15 @@ export default function Patients() {
         </div>
       </div>
 
-      {/* Add Patient Modal */}
+      {/* Add/Edit Patient Modal */}
       <AddPatientModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleAddPatient}
+        isOpen={isModalOpen || !!editingPatient}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingPatient(null);
+        }}
+        onSubmit={handleSavePatient}
+        editingPatient={editingPatient}
       />
 
       {/* View Patient Modal */}

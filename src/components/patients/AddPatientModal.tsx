@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,10 +44,38 @@ interface FormErrors {
   [key: string]: string;
 }
 
+interface Patient {
+  id: string;
+  full_name: string;
+  gender: string;
+  birth_date: string;
+  national_id: string;
+  phone: string;
+  alt_phone: string | null;
+  email: string | null;
+  address: string | null;
+  blood_type: string | null;
+  chronic_diseases: string | null;
+  allergies: string | null;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  emergency_contact_relation: string;
+  marital_status: string | null;
+  occupation: string | null;
+  nationality: string | null;
+  insurance_provider: string | null;
+  insurance_number: string | null;
+  historical_medical_conditions: string | null;
+  current_medications: string | null;
+  is_smoker: boolean | null;
+  has_insurance: boolean | null;
+}
+
 interface AddPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: FormData) => void;
+  editingPatient?: Patient | null;
 }
 
 const initialFormData: FormData = {
@@ -76,11 +104,44 @@ const initialFormData: FormData = {
   hasInsurance: false,
 };
 
-export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatientModalProps) {
+export default function AddPatientModal({ isOpen, onClose, onSubmit, editingPatient }: AddPatientModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<{ [key: string]: boolean }>({});
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editingPatient) {
+      setFormData({
+        fullName: editingPatient.full_name,
+        gender: editingPatient.gender as 'male' | 'female',
+        birthDate: editingPatient.birth_date,
+        nationalId: editingPatient.national_id,
+        phone: editingPatient.phone,
+        altPhone: editingPatient.alt_phone || '',
+        email: editingPatient.email || '',
+        address: editingPatient.address || '',
+        bloodType: editingPatient.blood_type || '',
+        chronicDiseases: editingPatient.chronic_diseases || '',
+        allergies: editingPatient.allergies || '',
+        emergencyContactName: editingPatient.emergency_contact_name,
+        emergencyContactPhone: editingPatient.emergency_contact_phone,
+        emergencyContactRelation: editingPatient.emergency_contact_relation,
+        maritalStatus: editingPatient.marital_status || '',
+        occupation: editingPatient.occupation || '',
+        nationality: editingPatient.nationality || 'سعودي',
+        insuranceProvider: editingPatient.insurance_provider || '',
+        insuranceNumber: editingPatient.insurance_number || '',
+        historicalMedicalConditions: editingPatient.historical_medical_conditions || '',
+        currentMedications: editingPatient.current_medications || '',
+        isSmoker: editingPatient.is_smoker || false,
+        hasInsurance: editingPatient.has_insurance || false,
+      });
+    } else {
+      setFormData(initialFormData);
+    }
+  }, [editingPatient]);
 
   const steps = [
     { number: 1, title: 'المعلومات الأساسية' },
@@ -208,7 +269,9 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-foreground">معلومات المريض</h2>
+            <h2 className="text-xl font-bold text-foreground">
+              {editingPatient ? 'تعديل بيانات المريض' : 'إضافة مريض جديد'}
+            </h2>
           </div>
           <button
             onClick={handleClose}
@@ -645,7 +708,7 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit }: AddPatien
             onClick={currentStep === 3 ? handleSubmit : handleNext}
             className="px-6 bg-primary hover:bg-primary/90"
           >
-            {currentStep === 3 ? 'حفظ' : 'التالي'}
+            {currentStep === 3 ? (editingPatient ? 'تحديث' : 'حفظ') : 'التالي'}
           </Button>
         </div>
       </div>
