@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Stethoscope, Plus, MoreVertical, Pencil, Trash2, Calendar, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,20 +20,91 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import AddDoctorModal from '@/components/doctors/AddDoctorModal';
-import { useDoctors, useCreateDoctor, useUpdateDoctor, useDeleteDoctor, DoctorWithClinic } from '@/hooks/useDoctors';
+import ViewDoctorScheduleModal from '@/components/doctors/ViewDoctorScheduleModal';
+import { useDoctors, useCreateDoctor, useUpdateDoctor, useDeleteDoctor, useDoctorSchedule, DoctorWithClinic } from '@/hooks/useDoctors';
 import { useClinics } from '@/hooks/useClinics';
+
+const weekDays = [
+  { key: 'saturday', label: 'السبت' },
+  { key: 'sunday', label: 'الأحد' },
+  { key: 'monday', label: 'الإثنين' },
+  { key: 'tuesday', label: 'الثلاثاء' },
+  { key: 'wednesday', label: 'الأربعاء' },
+  { key: 'thursday', label: 'الخميس' },
+  { key: 'friday', label: 'الجمعة' },
+];
 
 export default function Doctors() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<DoctorWithClinic | null>(null);
   const [deletingDoctor, setDeletingDoctor] = useState<DoctorWithClinic | null>(null);
+  const [editDoctorWithSchedule, setEditDoctorWithSchedule] = useState<any>(null);
+  const [viewingScheduleDoctor, setViewingScheduleDoctor] = useState<DoctorWithClinic | null>(null);
+  const [viewScheduleData, setViewScheduleData] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: doctors = [], isLoading, error } = useDoctors();
   const { data: clinics = [] } = useClinics();
+  const { data: scheduleData } = useDoctorSchedule(editingDoctor?.id || '');
+  const { data: viewScheduleDataFromDB } = useDoctorSchedule(viewingScheduleDoctor?.id || '');
   const createDoctor = useCreateDoctor();
   const updateDoctor = useUpdateDoctor();
   const deleteDoctor = useDeleteDoctor();
+
+  // Transform schedule data when loaded for editing
+  useEffect(() => {
+    if (editingDoctor && scheduleData) {
+      const transformedSchedule = weekDays.map((weekDay) => {
+        const dbSchedule = scheduleData.find(s => s.day_of_week === weekDay.key);
+        return {
+          day: weekDay.label,
+          isWorking: dbSchedule?.is_working ?? (weekDay.key !== 'friday'),
+          startTime: dbSchedule?.start_time || '08:00',
+          endTime: dbSchedule?.end_time || '16:00',
+        };
+      });
+
+      setEditDoctorWithSchedule({
+        id: 0,
+        name: editingDoctor.name,
+        specialty: editingDoctor.specialty,
+        clinic: editingDoctor.clinics?.name || '',
+        phone: editingDoctor.phone,
+        email: editingDoctor.email || '',
+        experience: `${editingDoctor.experience_years} سنوات`,
+        qualifications: editingDoctor.qualifications || '',
+        bio: editingDoctor.bio || '',
+        status: editingDoctor.status,
+        iconColor: editingDoctor.icon_color || '',
+        schedule: transformedSchedule,
+      });
+    } else if (!editingDoctor) {
+      setEditDoctorWithSchedule(null);
+    }
+  }, [editingDoctor, scheduleData]);
+
+  // Transform schedule data when loaded for viewing
+  useEffect(() => {
+    if (viewingScheduleDoctor && viewScheduleDataFromDB) {
+      const transformedSchedule = weekDays.map((weekDay) => {
+        const dbSchedule = viewScheduleDataFromDB.find(s => s.day_of_week === weekDay.key);
+        return {
+          day: weekDay.label,
+          isWorking: dbSchedule?.is_working ?? (weekDay.key !== 'friday'),
+          startTime: dbSchedule?.start_time || '08:00',
+          endTime: dbSchedule?.end_time || '16:00',
+        };
+      });
+
+      setViewScheduleData({
+        name: viewingScheduleDoctor.name,
+        specialty: viewingScheduleDoctor.specialty,
+        schedule: transformedSchedule,
+      });
+    } else if (!viewingScheduleDoctor) {
+      setViewScheduleData(null);
+    }
+  }, [viewingScheduleDoctor, viewScheduleDataFromDB]);
 
   const handleAddDoctor = async (doctorData: any) => {
     const clinicId = clinics.find(c => c.name === doctorData.clinic)?.id;
@@ -204,11 +275,11 @@ export default function Doctors() {
                       <Pencil className="w-4 h-4 ml-2" />
                       تعديل البيانات
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setViewingScheduleDoctor(doctor)}>
                       <Calendar className="w-4 h-4 ml-2" />
                       عرض الجدول
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => setDeletingDoctor(doctor)}
                       className="text-destructive focus:text-destructive"
                     >
@@ -270,19 +341,18 @@ export default function Doctors() {
         onClose={() => {
           setIsModalOpen(false);
           setEditingDoctor(null);
+          setEditDoctorWithSchedule(null);
         }}
         onSave={editingDoctor ? handleEditDoctor : handleAddDoctor}
-        editDoctor={editingDoctor ? {
-          id: 0,
-          name: editingDoctor.name,
-          specialty: editingDoctor.specialty,
-          clinic: editingDoctor.clinics?.name || '',
-          phone: editingDoctor.phone,
-          experience: `${editingDoctor.experience_years} سنوات`,
-          status: editingDoctor.status,
-          iconColor: editingDoctor.icon_color || '',
-        } : null}
+        editDoctor={editDoctorWithSchedule}
         clinics={clinics}
+      />
+
+      {/* View Schedule Modal */}
+      <ViewDoctorScheduleModal
+        isOpen={!!viewingScheduleDoctor}
+        onClose={() => setViewingScheduleDoctor(null)}
+        doctor={viewScheduleData}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -296,8 +366,8 @@ export default function Doctors() {
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteDoctor} 
+            <AlertDialogAction
+              onClick={handleDeleteDoctor}
               className="bg-destructive hover:bg-destructive/90"
               disabled={deleteDoctor.isPending}
             >

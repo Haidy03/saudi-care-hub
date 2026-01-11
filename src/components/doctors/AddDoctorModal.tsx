@@ -45,9 +45,13 @@ interface Doctor {
   specialty: string;
   clinic: string;
   phone: string;
+  email?: string;
   experience: string;
+  qualifications?: string;
+  bio?: string;
   status: string;
   iconColor: string;
+  schedule?: WorkingDay[];
 }
 
 interface ClinicOption {
@@ -128,12 +132,12 @@ export default function AddDoctorModal({ isOpen, onClose, onSave, editDoctor, cl
         specialty: editDoctor.specialty,
         clinic: editDoctor.clinic,
         phone: editDoctor.phone,
-        email: '',
+        email: editDoctor.email || '',
         experience: editDoctor.experience.replace(' سنوات', '').replace(' سنة', ''),
-        qualifications: '',
+        qualifications: editDoctor.qualifications || '',
         status: editDoctor.status,
-        bio: '',
-        schedule: initialSchedule,
+        bio: editDoctor.bio || '',
+        schedule: editDoctor.schedule || initialSchedule,
       });
     } else {
       setFormData(initialFormData);
@@ -186,13 +190,26 @@ export default function AddDoctorModal({ isOpen, onClose, onSave, editDoctor, cl
     const experienceNum = Number(formData.experience);
     const experienceText = experienceNum === 1 ? '1 سنة' : `${experienceNum} سنوات`;
 
+    // Map schedule with dayKey for backend
+    const scheduleWithDayKey = formData.schedule.map((day, index) => ({
+      dayKey: weekDays[index].key,
+      day: day.day,
+      isWorking: day.isWorking,
+      startTime: day.startTime,
+      endTime: day.endTime,
+    }));
+
     onSave({
       name: formData.fullName,
       specialty: formData.specialty,
       clinic: formData.clinic,
       phone: formData.phone,
+      email: formData.email,
       experience: experienceText,
+      qualifications: formData.qualifications,
+      bio: formData.bio,
       status: formData.status,
+      schedule: scheduleWithDayKey,
     });
   };
 
