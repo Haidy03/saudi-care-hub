@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Users, Search, Filter, Plus, Eye, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Users, Search, Filter, Plus, Eye, Edit, Trash2, Loader2, Calendar, Download, Upload, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -15,25 +15,106 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function Patients() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState<{ id: string; name: string } | null>(null);
 
+  // Filter states
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [genderFilter, setGenderFilter] = useState<string>('all');
+  const [ageFilter, setAgeFilter] = useState<string>('all');
+  const [phoneFilter, setPhoneFilter] = useState('');
+
   const { data: patients = [], isLoading, error } = usePatients();
   const createPatient = useCreatePatient();
   const deletePatient = useDeletePatient();
 
   const filteredPatients = useMemo(() => {
-    if (!searchQuery.trim()) return patients;
-    const query = searchQuery.toLowerCase();
-    return patients.filter(
-      (patient) =>
-        patient.full_name.toLowerCase().includes(query) ||
-        patient.phone.includes(query)
-    );
-  }, [searchQuery, patients]);
+    let filtered = patients;
+
+    // Search query filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (patient) =>
+          patient.full_name.toLowerCase().includes(query) ||
+          patient.phone.includes(query) ||
+          patient.national_id.includes(query)
+      );
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter((patient) => new Date(patient.created_at) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      filtered = filtered.filter((patient) => new Date(patient.created_at) <= toDate);
+    }
+
+    // Gender filter
+    if (genderFilter !== 'all') {
+      filtered = filtered.filter((patient) => patient.gender === genderFilter);
+    }
+
+    // Age filter
+    if (ageFilter !== 'all') {
+      filtered = filtered.filter((patient) => {
+        const age = calculateAge(patient.birth_date);
+        switch (ageFilter) {
+          case 'child': return age < 18;
+          case 'adult': return age >= 18 && age < 60;
+          case 'senior': return age >= 60;
+          default: return true;
+        }
+      });
+    }
+
+    // Phone filter
+    if (phoneFilter.trim()) {
+      filtered = filtered.filter((patient) =>
+        patient.phone.includes(phoneFilter.trim())
+      );
+    }
+
+    return filtered;
+  }, [searchQuery, patients, dateFrom, dateTo, genderFilter, ageFilter, phoneFilter]);
+
+  // Statistics calculations
+  const totalPatients = patients.length;
+
+  const todayPatients = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return patients.filter((patient) => {
+      const patientDate = new Date(patient.created_at);
+      patientDate.setHours(0, 0, 0, 0);
+      return patientDate.getTime() === today.getTime();
+    }).length;
+  }, [patients]);
+
+  const weekPatients = useMemo(() => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return patients.filter((patient) => new Date(patient.created_at) >= weekAgo).length;
+  }, [patients]);
 
   const handleAddPatient = async (formData: any) => {
     try {
@@ -83,10 +164,6 @@ export default function Patients() {
     setDeletingPatient(null);
   };
 
-  const handleFilter = () => {
-    toast.info('سيتم فتح خيارات الفلترة');
-  };
-
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -97,50 +174,208 @@ export default function Patients() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Users className="w-5 h-5 text-primary" />
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Total Patients */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">المجموع الكلي</p>
+              <h3 className="text-3xl font-bold text-foreground">{totalPatients}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Users className="w-6 h-6 text-primary" />
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">إدارة المرضى</h1>
-            <p className="text-sm text-muted-foreground">عرض وإدارة بيانات المرضى</p>
+        </div>
+
+        {/* Today's Patients */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">المضاف اليوم</p>
+              <h3 className="text-3xl font-bold text-foreground">{todayPatients}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly Patients */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">المضاف هذا الأسبوع</p>
+              <h3 className="text-3xl font-bold text-foreground">{weekPatients}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-orange-600" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        {/* Search Input */}
-        <div className="relative w-full sm:w-[400px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="البحث بالاسم أو رقم الهاتف..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10 bg-card border-border focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
+      {/* Search and Filter Bar */}
+      <div className="bg-card rounded-lg shadow-sm border border-border p-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+          {/* Left Section - Search and Filters */}
+          <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-[300px]">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="البحث..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10 h-10 bg-background border-border"
+              />
+            </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleFilter}
-            className="gap-2 border-border hover:bg-muted"
-          >
-            <Filter className="w-4 h-4" />
-            فلترة
-          </Button>
-          <Button
-            onClick={() => setIsModalOpen(true)}
-            className="gap-2 bg-primary hover:bg-primary/90"
-          >
-            <Plus className="w-4 h-4" />
-            إضافة مريض
-          </Button>
+            {/* Date Range Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 gap-2 border-border">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm">
+                    {dateFrom || dateTo
+                      ? `${dateFrom || '...'} - ${dateTo || '...'}`
+                      : 'تاريخ الإنشاء'}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-4" align="start">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">من تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">إلى تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setDateFrom('');
+                        setDateTo('');
+                      }}
+                      className="flex-1"
+                    >
+                      إعادة تعيين
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Advanced Filters */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 gap-2 border-border">
+                  <Filter className="w-4 h-4" />
+                  فلترة متقدمة
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4" align="start">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">النوع</label>
+                    <Select value={genderFilter} onValueChange={setGenderFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر النوع" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">الكل</SelectItem>
+                        <SelectItem value="male">ذكر</SelectItem>
+                        <SelectItem value="female">أنثى</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">العمر</label>
+                    <Select value={ageFilter} onValueChange={setAgeFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر الفئة العمرية" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">الكل</SelectItem>
+                        <SelectItem value="child">أطفال (أقل من 18)</SelectItem>
+                        <SelectItem value="adult">بالغون (18-60)</SelectItem>
+                        <SelectItem value="senior">كبار السن (أكثر من 60)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">رقم الهاتف</label>
+                    <Input
+                      type="text"
+                      placeholder="ابحث برقم الهاتف..."
+                      value={phoneFilter}
+                      onChange={(e) => setPhoneFilter(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setGenderFilter('all');
+                        setAgeFilter('all');
+                        setPhoneFilter('');
+                      }}
+                      className="flex-1"
+                    >
+                      إعادة تعيين
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Right Section - Action Buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 gap-2 border-border hover:bg-muted"
+            >
+              <Download className="w-4 h-4" />
+              تحميل
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 gap-2 border-border hover:bg-muted"
+            >
+              <Upload className="w-4 h-4" />
+              رفع
+            </Button>
+            <Button
+              onClick={() => setIsModalOpen(true)}
+              className="h-10 gap-2 bg-primary hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" />
+              إضافة مريض
+            </Button>
+          </div>
         </div>
       </div>
 
