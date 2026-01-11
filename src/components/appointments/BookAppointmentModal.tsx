@@ -22,7 +22,7 @@ import {
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { useClinics } from '@/hooks/useClinics';
-import { useDoctorsByClinic } from '@/hooks/useDoctors';
+import { useDoctorsByClinic, useDoctorSchedule } from '@/hooks/useDoctors';
 import { useSearchPatients, usePatients, Patient, calculateAge } from '@/hooks/usePatients';
 import { useBookedSlots } from '@/hooks/useAppointments';
 
@@ -31,9 +31,25 @@ interface BookAppointmentModalProps {
   onClose: () => void;
   onSubmit: (data: AppointmentFormData) => void;
   onAddNewPatient: () => void;
+  editAppointment?: {
+    id: string;
+    patientId: string;
+    patientName: string;
+    clinicId: string;
+    clinic: string;
+    doctorId: string;
+    doctor: string;
+    date: string;
+    time: string;
+    appointmentType: string;
+    reason: string;
+    notes: string;
+    sendReminder: boolean;
+  } | null;
 }
 
 interface AppointmentFormData {
+  id?: string;
   patientId: string;
   patientName: string;
   clinicId: string;
@@ -74,17 +90,34 @@ const steps = [
 function displayTimeToDbTime(displayTime: string): string {
   const match = displayTime.match(/(\d{2}):(\d{2})\s*(ص|م)/);
   if (!match) return displayTime;
-  
+
   let [, hours, minutes, period] = match;
   let hour = parseInt(hours, 10);
-  
+
   if (period === 'م' && hour !== 12) {
     hour += 12;
   } else if (period === 'ص' && hour === 12) {
     hour = 0;
   }
-  
+
   return `${hour.toString().padStart(2, '0')}:${minutes}:00`;
+}
+
+// Map day names to database keys
+const dayOfWeekMap: { [key: number]: string } = {
+  0: 'sunday',
+  1: 'monday',
+  2: 'tuesday',
+  3: 'wednesday',
+  4: 'thursday',
+  5: 'friday',
+  6: 'saturday',
+};
+
+// Convert time string (HH:MM:SS or HH:MM) to minutes since midnight
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
 }
 
 export default function BookAppointmentModal({
@@ -92,6 +125,7 @@ export default function BookAppointmentModal({
   onClose,
   onSubmit,
   onAddNewPatient,
+  editAppointment,
 }: BookAppointmentModalProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,7 +144,8 @@ export default function BookAppointmentModal({
   const { data: clinics = [], isLoading: clinicsLoading } = useClinics();
   const { data: doctors = [], isLoading: doctorsLoading } = useDoctorsByClinic(selectedClinic);
   const { data: patients = [] } = usePatients();
-  
+  const { data: doctorSchedule = [] } = useDoctorSchedule(selectedDoctor || '');
+
   // Get booked slots for selected doctor and date
   const { data: bookedSlots = [] } = useBookedSlots(
     selectedDoctor,
@@ -125,6 +160,41 @@ export default function BookAppointmentModal({
       (p) => p.full_name.toLowerCase().includes(query) || p.phone.includes(query)
     ).slice(0, 10);
   }, [searchQuery, patients]);
+
+  // Check if a date is a working day for the doctor
+  const isDoctorWorkingDay = (date: Date): boolean => {
+    if (!selectedDoctor || doctorSchedule.length === 0) return true; // Allow all days if no schedule
+    const dayKey = dayOfWeekMap[date.getDay()];
+    const daySchedule = doctorSchedule.find(s => s.day_of_week === dayKey);
+    return daySchedule?.is_working ?? false;
+  };
+
+  // Get doctor's working hours for the selected date
+  const getDoctorWorkingHours = (): { start: number; end: number } | null => {
+    if (!selectedDate || !selectedDoctor || doctorSchedule.length === 0) return null;
+    const dayKey = dayOfWeekMap[selectedDate.getDay()];
+    const daySchedule = doctorSchedule.find(s => s.day_of_week === dayKey);
+
+    if (!daySchedule || !daySchedule.is_working) return null;
+
+    return {
+      start: timeToMinutes(daySchedule.start_time),
+      end: timeToMinutes(daySchedule.end_time),
+    };
+  };
+
+  // Filter available time slots based on doctor's schedule
+  const availableTimeSlots = useMemo(() => {
+    const workingHours = getDoctorWorkingHours();
+
+    if (!workingHours) return [];
+
+    return timeSlots.filter(slot => {
+      const slotTime = displayTimeToDbTime(slot);
+      const slotMinutes = timeToMinutes(slotTime);
+      return slotMinutes >= workingHours.start && slotMinutes < workingHours.end;
+    });
+  }, [selectedDate, selectedDoctor, doctorSchedule]);
 
   // Check if a time slot is booked
   const isTimeSlotBooked = (slot: string): boolean => {
@@ -182,6 +252,7 @@ export default function BookAppointmentModal({
     const doctorData = doctors.find((d) => d.id === selectedDoctor);
 
     onSubmit({
+      ...(editAppointment && { id: editAppointment.id }),
       patientId: selectedPatient.id,
       patientName: selectedPatient.full_name,
       clinicId: selectedClinic,
@@ -219,15 +290,40 @@ export default function BookAppointmentModal({
     onClose();
   };
 
+  // Populate form when editing
+  useEffect(() => {
+    if (editAppointment && isOpen) {
+      // Find the patient from the list
+      const patient = patients.find(p => p.id === editAppointment.patientId);
+      if (patient) {
+        setSelectedPatient(patient);
+      }
+
+      setSelectedClinic(editAppointment.clinicId);
+      setSelectedDoctor(editAppointment.doctorId);
+      setSelectedDate(new Date(editAppointment.date));
+      setSelectedTime(editAppointment.time);
+      setAppointmentType(editAppointment.appointmentType);
+      setReason(editAppointment.reason);
+      setNotes(editAppointment.notes);
+      setSendReminder(editAppointment.sendReminder);
+      setCurrentStep(1);
+    }
+  }, [editAppointment, isOpen, patients]);
+
   // Reset doctor when clinic changes
   useEffect(() => {
-    setSelectedDoctor('');
-  }, [selectedClinic]);
+    if (!editAppointment) {
+      setSelectedDoctor('');
+    }
+  }, [selectedClinic, editAppointment]);
 
   // Reset time when date changes
   useEffect(() => {
-    setSelectedTime('');
-  }, [selectedDate]);
+    if (!editAppointment) {
+      setSelectedTime('');
+    }
+  }, [selectedDate, editAppointment]);
 
   if (!isOpen) return null;
 
@@ -240,8 +336,12 @@ export default function BookAppointmentModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-foreground">حجز موعد جديد</h2>
-            <p className="text-sm text-muted-foreground">املأ بيانات الموعد</p>
+            <h2 className="text-xl font-bold text-foreground">
+              {editAppointment ? 'تعديل الموعد' : 'حجز موعد جديد'}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {editAppointment ? 'تعديل بيانات الموعد' : 'املأ بيانات الموعد'}
+            </p>
           </div>
           <button
             onClick={handleClose}
@@ -486,7 +586,15 @@ export default function BookAppointmentModal({
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      disabled={(date) => date < new Date()}
+                      disabled={(date) => {
+                        // Disable past dates
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        if (date < today) return true;
+
+                        // Disable non-working days for the doctor
+                        return !isDoctorWorkingDay(date);
+                      }}
                       initialFocus
                       className={cn('p-3 pointer-events-auto')}
                     />
@@ -501,29 +609,36 @@ export default function BookAppointmentModal({
                 <Label className="text-sm font-medium text-foreground mb-1.5 block">
                   الوقت <span className="text-destructive">*</span>
                 </Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {timeSlots.map((slot) => {
-                    const isBooked = isTimeSlotBooked(slot);
-                    const isSelected = selectedTime === slot;
-                    return (
-                      <button
-                        key={slot}
-                        onClick={() => !isBooked && setSelectedTime(slot)}
-                        disabled={isBooked}
-                        className={cn(
-                          'py-2 px-3 text-sm rounded-lg border transition-colors',
-                          isBooked
-                            ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted'
-                            : isSelected
-                            ? 'bg-primary text-primary-foreground border-primary'
-                            : 'bg-card hover:bg-primary/10 hover:border-primary border-border'
-                        )}
-                      >
-                        {slot}
-                      </button>
-                    );
-                  })}
-                </div>
+                {availableTimeSlots.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">لا توجد أوقات متاحة في هذا اليوم</p>
+                    <p className="text-xs mt-1">يرجى اختيار يوم آخر</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {availableTimeSlots.map((slot) => {
+                      const isBooked = isTimeSlotBooked(slot);
+                      const isSelected = selectedTime === slot;
+                      return (
+                        <button
+                          key={slot}
+                          onClick={() => !isBooked && setSelectedTime(slot)}
+                          disabled={isBooked}
+                          className={cn(
+                            'py-2 px-3 text-sm rounded-lg border transition-colors',
+                            isBooked
+                              ? 'bg-muted text-muted-foreground cursor-not-allowed border-muted'
+                              : isSelected
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-card hover:bg-primary/10 hover:border-primary border-border'
+                          )}
+                        >
+                          {slot}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {errors.time && (
                   <p className="text-xs text-destructive mt-1">{errors.time}</p>
                 )}
@@ -617,7 +732,7 @@ export default function BookAppointmentModal({
           </Button>
           <Button onClick={handleNext} className="gap-2">
             {currentStep === 4 ? (
-              'حفظ'
+              editAppointment ? 'حفظ التعديلات' : 'حفظ'
             ) : (
               <>
                 التالي

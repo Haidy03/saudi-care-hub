@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import BookAppointmentModal from '@/components/appointments/BookAppointmentModal';
 import AddPatientModal from '@/components/patients/AddPatientModal';
-import { useAppointments, useCancelAppointment, useCreateAppointment, formatTimeForDisplay, formatTimeForDatabase, AppointmentWithDetails } from '@/hooks/useAppointments';
+import { useAppointments, useCancelAppointment, useCreateAppointment, useUpdateAppointment, formatTimeForDisplay, formatTimeForDatabase, AppointmentWithDetails } from '@/hooks/useAppointments';
 import { useCreatePatient } from '@/hooks/usePatients';
 
 type ViewMode = 'table' | 'calendar';
@@ -31,29 +31,50 @@ export default function Appointments() {
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<AppointmentWithDetails | null>(null);
 
   const { data: appointments = [], isLoading, error } = useAppointments();
   const createAppointment = useCreateAppointment();
+  const updateAppointment = useUpdateAppointment();
   const cancelAppointment = useCancelAppointment();
   const createPatient = useCreatePatient();
 
   const handleBookAppointment = async (data: any) => {
     try {
-      await createAppointment.mutateAsync({
-        patient_id: data.patientId,
-        doctor_id: data.doctorId,
-        clinic_id: data.clinicId,
-        appointment_date: data.date,
-        appointment_time: formatTimeForDatabase(data.time),
-        appointment_type: data.appointmentType as 'general' | 'followup' | 'consultation' | 'emergency',
-        reason: data.reason,
-        notes: data.notes || null,
-        send_reminder: data.sendReminder,
-      });
+      if (data.id) {
+        // Update existing appointment
+        await updateAppointment.mutateAsync({
+          id: data.id,
+          patient_id: data.patientId,
+          doctor_id: data.doctorId,
+          clinic_id: data.clinicId,
+          appointment_date: data.date,
+          appointment_time: formatTimeForDatabase(data.time),
+          appointment_type: data.appointmentType as 'general' | 'followup' | 'consultation' | 'emergency',
+          reason: data.reason,
+          notes: data.notes || null,
+          send_reminder: data.sendReminder,
+        });
+        toast.success('تم تعديل الموعد بنجاح');
+      } else {
+        // Create new appointment
+        await createAppointment.mutateAsync({
+          patient_id: data.patientId,
+          doctor_id: data.doctorId,
+          clinic_id: data.clinicId,
+          appointment_date: data.date,
+          appointment_time: formatTimeForDatabase(data.time),
+          appointment_type: data.appointmentType as 'general' | 'followup' | 'consultation' | 'emergency',
+          reason: data.reason,
+          notes: data.notes || null,
+          send_reminder: data.sendReminder,
+        });
+        toast.success('تم حجز الموعد بنجاح');
+      }
       setIsBookingModalOpen(false);
-      toast.success('تم حجز الموعد بنجاح');
+      setEditingAppointment(null);
     } catch (err) {
-      toast.error('حدث خطأ أثناء حجز الموعد');
+      toast.error(data.id ? 'حدث خطأ أثناء تعديل الموعد' : 'حدث خطأ أثناء حجز الموعد');
     }
   };
 
@@ -87,7 +108,8 @@ export default function Appointments() {
   };
 
   const handleEdit = (appointment: AppointmentWithDetails) => {
-    toast.info(`تعديل موعد: ${appointment.patients?.full_name}`);
+    setEditingAppointment(appointment);
+    setIsBookingModalOpen(true);
   };
 
   const handleDeleteClick = (appointment: AppointmentWithDetails) => {
@@ -320,9 +342,27 @@ export default function Appointments() {
       {/* Book Appointment Modal */}
       <BookAppointmentModal
         isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
+        onClose={() => {
+          setIsBookingModalOpen(false);
+          setEditingAppointment(null);
+        }}
         onSubmit={handleBookAppointment}
         onAddNewPatient={() => setIsPatientModalOpen(true)}
+        editAppointment={editingAppointment ? {
+          id: editingAppointment.id,
+          patientId: editingAppointment.patient_id,
+          patientName: editingAppointment.patients?.full_name || '',
+          clinicId: editingAppointment.clinic_id,
+          clinic: editingAppointment.clinics?.name || '',
+          doctorId: editingAppointment.doctor_id,
+          doctor: editingAppointment.doctors?.name || '',
+          date: editingAppointment.appointment_date,
+          time: formatTimeForDisplay(editingAppointment.appointment_time),
+          appointmentType: editingAppointment.appointment_type,
+          reason: editingAppointment.reason,
+          notes: editingAppointment.notes || '',
+          sendReminder: editingAppointment.send_reminder,
+        } : null}
       />
 
       {/* Add Patient Modal */}
