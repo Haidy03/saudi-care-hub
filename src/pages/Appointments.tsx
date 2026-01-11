@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Calendar, Plus, Edit, Trash2, Table, CalendarDays, Loader2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Calendar, Plus, Edit, Trash2, Table, CalendarDays, Loader2, Search, Filter, Users, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -12,6 +13,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import BookAppointmentModal from '@/components/appointments/BookAppointmentModal';
 import AddPatientModal from '@/components/patients/AddPatientModal';
 import { useAppointments, useCancelAppointment, useCreateAppointment, useUpdateAppointment, formatTimeForDisplay, formatTimeForDatabase, AppointmentWithDetails } from '@/hooks/useAppointments';
@@ -33,11 +46,108 @@ export default function Appointments() {
   const [isPatientModalOpen, setIsPatientModalOpen] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<AppointmentWithDetails | null>(null);
 
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [doctorFilter, setDoctorFilter] = useState<string>('all');
+  const [clinicFilter, setClinicFilter] = useState<string>('all');
+
   const { data: appointments = [], isLoading, error } = useAppointments();
   const createAppointment = useCreateAppointment();
   const updateAppointment = useUpdateAppointment();
   const cancelAppointment = useCancelAppointment();
   const createPatient = useCreatePatient();
+
+  // Get unique doctors and clinics for filters
+  const doctors = useMemo(() => {
+    const uniqueDoctors = Array.from(
+      new Map(
+        appointments
+          .filter(a => a.doctors?.name)
+          .map(a => [a.doctor_id, { id: a.doctor_id, name: a.doctors!.name }])
+      ).values()
+    );
+    return uniqueDoctors;
+  }, [appointments]);
+
+  const clinics = useMemo(() => {
+    const uniqueClinics = Array.from(
+      new Map(
+        appointments
+          .filter(a => a.clinics?.name)
+          .map(a => [a.clinic_id, { id: a.clinic_id, name: a.clinics!.name }])
+      ).values()
+    );
+    return uniqueClinics;
+  }, [appointments]);
+
+  // Filtered appointments
+  const filteredAppointments = useMemo(() => {
+    let filtered = appointments;
+
+    // Search query filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (appointment) =>
+          appointment.patients?.full_name?.toLowerCase().includes(query) ||
+          appointment.doctors?.name?.toLowerCase().includes(query) ||
+          appointment.clinics?.name?.toLowerCase().includes(query) ||
+          appointment.reason?.toLowerCase().includes(query)
+      );
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      filtered = filtered.filter((appointment) => new Date(appointment.appointment_date) >= fromDate);
+    }
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((appointment) => new Date(appointment.appointment_date) <= toDate);
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((appointment) => appointment.status === statusFilter);
+    }
+
+    // Doctor filter
+    if (doctorFilter !== 'all') {
+      filtered = filtered.filter((appointment) => appointment.doctor_id === doctorFilter);
+    }
+
+    // Clinic filter
+    if (clinicFilter !== 'all') {
+      filtered = filtered.filter((appointment) => appointment.clinic_id === clinicFilter);
+    }
+
+    return filtered;
+  }, [searchQuery, appointments, dateFrom, dateTo, statusFilter, doctorFilter, clinicFilter]);
+
+  // Statistics
+  const totalAppointments = appointments.length;
+
+  const todayAppointments = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return appointments.filter((appointment) => {
+      const appointmentDate = new Date(appointment.appointment_date);
+      appointmentDate.setHours(0, 0, 0, 0);
+      return appointmentDate.getTime() === today.getTime();
+    }).length;
+  }, [appointments]);
+
+  const upcomingAppointments = useMemo(() => {
+    return appointments.filter((appointment) => appointment.status === 'upcoming').length;
+  }, [appointments]);
+
+  const completedAppointments = useMemo(() => {
+    return appointments.filter((appointment) => appointment.status === 'completed').length;
+  }, [appointments]);
 
   const handleBookAppointment = async (data: any) => {
     try {
@@ -140,50 +250,237 @@ export default function Appointments() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-primary" />
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Total Appointments */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">المجموع الكلي</p>
+              <h3 className="text-3xl font-bold text-foreground">{totalAppointments}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-primary" />
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">إدارة المواعيد</h1>
-            <p className="text-sm text-muted-foreground">جدولة ومتابعة المواعيد</p>
+        </div>
+
+        {/* Today's Appointments */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">مواعيد اليوم</p>
+              <h3 className="text-3xl font-bold text-foreground">{todayAppointments}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+              <CalendarDays className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Upcoming Appointments */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">المواعيد القادمة</p>
+              <h3 className="text-3xl font-bold text-foreground">{upcomingAppointments}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-orange-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Completed Appointments */}
+        <div className="bg-card rounded-lg shadow-sm border border-border p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">المواعيد المكتملة</p>
+              <h3 className="text-3xl font-bold text-foreground">{completedAppointments}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6 text-green-600" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        {/* View Toggle */}
-        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
-          <Button
-            variant={viewMode === 'table' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('table')}
-            className={`gap-2 ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Table className="w-4 h-4" />
-            عرض جدولي
-          </Button>
-          <Button
-            variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setViewMode('calendar')}
-            className={`gap-2 ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <CalendarDays className="w-4 h-4" />
-            عرض تقويمي
-          </Button>
-        </div>
+      {/* Search and Filter Bar */}
+      <div className="bg-card rounded-lg shadow-sm border border-border p-4">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+          {/* Left Section - Search and Filters */}
+          <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
+            {/* Search Input */}
+            <div className="relative w-full sm:w-[300px]">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="البحث..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pr-10 h-10 bg-background border-border"
+              />
+            </div>
 
-        {/* New Appointment Button */}
+            {/* Date Range Filter */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 gap-2 border-border">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm">
+                    {dateFrom || dateTo
+                      ? `${dateFrom || '...'} - ${dateTo || '...'}`
+                      : 'تاريخ الموعد'}
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-4" align="start">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">من تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">إلى تاريخ</label>
+                    <Input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setDateFrom('');
+                        setDateTo('');
+                      }}
+                      className="flex-1"
+                    >
+                      إعادة تعيين
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {/* Advanced Filters */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 gap-2 border-border">
+                  <Filter className="w-4 h-4" />
+                  فلترة متقدمة
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4" align="start">
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">الحالة</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر الحالة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">الكل</SelectItem>
+                        <SelectItem value="upcoming">قادم</SelectItem>
+                        <SelectItem value="completed">مكتمل</SelectItem>
+                        <SelectItem value="cancelled">ملغي</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">الدكتور</label>
+                    <Select value={doctorFilter} onValueChange={setDoctorFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر الدكتور" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">الكل</SelectItem>
+                        {doctors.map((doctor) => (
+                          <SelectItem key={doctor.id} value={doctor.id}>
+                            {doctor.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">العيادة</label>
+                    <Select value={clinicFilter} onValueChange={setClinicFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر العيادة" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">الكل</SelectItem>
+                        {clinics.map((clinic) => (
+                          <SelectItem key={clinic.id} value={clinic.id}>
+                            {clinic.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setStatusFilter('all');
+                        setDoctorFilter('all');
+                        setClinicFilter('all');
+                      }}
+                      className="flex-1"
+                    >
+                      إعادة تعيين
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          {/* Right Section - Action Buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setIsBookingModalOpen(true)}
+              className="h-10 gap-2 bg-primary hover:bg-primary/90"
+            >
+              <Plus className="w-4 h-4" />
+              حجز موعد جديد
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* View Toggle */}
+      <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg w-fit">
         <Button
-          onClick={() => setIsBookingModalOpen(true)}
-          className="gap-2 bg-primary hover:bg-primary/90"
+          variant={viewMode === 'table' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setViewMode('table')}
+          className={`gap-2 ${viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
-          <Plus className="w-4 h-4" />
-          حجز موعد جديد
+          <Table className="w-4 h-4" />
+          عرض جدولي
+        </Button>
+        <Button
+          variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setViewMode('calendar')}
+          className={`gap-2 ${viewMode === 'calendar' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <CalendarDays className="w-4 h-4" />
+          عرض تقويمي
         </Button>
       </div>
 
@@ -216,8 +513,14 @@ export default function Appointments() {
                       لا توجد مواعيد مسجلة
                     </td>
                   </tr>
+                ) : filteredAppointments.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-12 text-muted-foreground">
+                      لا توجد نتائج مطابقة للبحث
+                    </td>
+                  </tr>
                 ) : (
-                  appointments.map((appointment) => {
+                  filteredAppointments.map((appointment) => {
                     const status = statusConfig[appointment.status as keyof typeof statusConfig];
                     return (
                       <tr
@@ -296,7 +599,7 @@ export default function Appointments() {
           {/* Table Footer */}
           <div className="px-6 py-4 border-t border-border bg-muted/30 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
-              إجمالي المواعيد: {appointments.length}
+              عرض {filteredAppointments.length} من {appointments.length} موعد
             </p>
           </div>
         </div>
