@@ -127,6 +127,7 @@ export default function Patients() {
     try {
       const patientData = {
         full_name: formData.fullName,
+        name_en: formData.nameEn || null,
         gender: formData.gender,
         birth_date: formData.birthDate,
         national_id: formData.nationalId,

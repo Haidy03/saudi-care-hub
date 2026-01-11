@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 
 interface FormData {
   fullName: string;
+  nameEn: string;
   gender: 'male' | 'female' | '';
   birthDate: string;
   nationalId: string;
@@ -47,6 +48,7 @@ interface FormErrors {
 interface Patient {
   id: string;
   full_name: string;
+  name_en: string | null;
   gender: string;
   birth_date: string;
   national_id: string;
@@ -80,6 +82,7 @@ interface AddPatientModalProps {
 
 const initialFormData: FormData = {
   fullName: '',
+  nameEn: '',
   gender: '',
   birthDate: '',
   nationalId: '',
@@ -115,6 +118,7 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit, editingPati
     if (editingPatient) {
       setFormData({
         fullName: editingPatient.full_name,
+        nameEn: editingPatient.name_en || '',
         gender: editingPatient.gender as 'male' | 'female',
         birthDate: editingPatient.birth_date,
         nationalId: editingPatient.national_id,
@@ -338,6 +342,20 @@ export default function AddPatientModal({ isOpen, onClose, onSubmit, editingPati
                   className={`h-11 ${errors.fullName ? 'border-destructive' : ''}`}
                 />
                 {errors.fullName && <p className="text-xs text-destructive mt-1">{errors.fullName}</p>}
+              </div>
+
+              {/* Name in English */}
+              <div>
+                <Label className="text-sm font-medium text-foreground mb-2 block">
+                  الاسم بالإنجليزية
+                </Label>
+                <Input
+                  value={formData.nameEn}
+                  onChange={(e) => handleChange('nameEn', e.target.value)}
+                  placeholder="Full Name in English"
+                  dir="ltr"
+                  className="h-11 text-left"
+                />
               </div>
 
               {/* Gender and Birth Date */}
